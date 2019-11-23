@@ -12,6 +12,7 @@
 #include "opencv2/highgui.hpp"
 #include "opencv2/core.hpp"
 #include "opencv2/imgproc.hpp"
+#include <opencv2/xfeatures2d.hpp>
 
 // Use OpenCV namespace
 using namespace cv;
@@ -21,7 +22,8 @@ using namespace std;
 void importImages();
 vector<String> getImages(String path);
 vector<Mat> loadImages(vector<String> list);
-void imgMatch(String identify);
+void imgORBMatch(String identify);
+void imgSIFTMatch(String identify);
 
 // Global Variables
 //vector<string> listofImages; // Original plan to do all the file names... ignore forever.
@@ -40,13 +42,19 @@ int main()
 //    imshow("test",matChurch[2]);
 //    waitKey();
     
-    imgMatch("church"); // Choices: WLH, Church, or office
+    cout << "TO DO LIST:" << endl;
+    cout << "1. Metrics to determine good matches and count them?" << endl;
+    cout << "2. Determine which image to take as the base image...?" << endl;
+    cout << "3. Make sure stitching tool works" << endl;
+    
+//    imgORBMatch("church"); // Choices: wlh, church, or office
+    imgSIFTMatch("church"); // Choices: wkh, church, or office
     
     return 0;
 }
 
 
-void imgMatch(String identify)
+void imgORBMatch(String identify)
 {
     vector<Mat> matSource;
     
@@ -70,8 +78,8 @@ void imgMatch(String identify)
         cout << "Error occurred" << endl;
         return;
     }
-    Mat img1 = matSource[0];
-    Mat img2 = matSource[1];
+    Mat img1 = matSource[2];
+    Mat img2 = matSource[3];
     
     
     vector<KeyPoint> keypoints1, keypoints2;
@@ -92,44 +100,18 @@ void imgMatch(String identify)
     detector->detectAndCompute(img2, Mat(), keypoints2, descriptors2);
     
     // Match features
-    vector<DMatch> matches12, matches21, filteredMatches12;
+    vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
     Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
     matcher->match(descriptors1, descriptors2, matches12, Mat());
     matcher->match(descriptors2, descriptors1, matches21, Mat());
+
     
     
-    
-    //Ptr<BFMatcher> retval = BFMatcher::create(NORM_L2, false);
-    /*
-    BruteForceMatcher<L2<float>> descriptorMatcher;
-    vector<DMatch> filteredMatches12, matches12, matches21;
-    descriptorMatcher.match(descriptors1, descriptors2, matches12);
-    descriptorMatcher.match(descriptors2, descriptors1, matches21);
-    for( size_t i = 0; i < matches12.size(); i++ )
-    {
-        DMatch forward = matches12[i];
-        DMatch backward = matches21[forward.trainIdx];
-        if( backward.trainIdx == forward.queryIdx )
-            filteredMatches12.push_back( forward );
-    }
-    */
-    
-    
-    /*
     // Sort matches to delete the matches that aren't so great
-    sort(matches.begin(), matches.end());
+//    sort(matches12.begin(), matches12.end());
     // Remove not good matches
-    const int numGoodMatches = matches.size() * 0.15f;
-    matches.erase(matches.begin() + numGoodMatches, matches.end());
-    */
-    
-    
-    // Old lab code...
-     for (size_t i = 0; i < matches12.size(); i++)
-    {
-        img1Points.push_back(keypoints1[matches12[i].queryIdx].pt);
-        img2Points.push_back(keypoints2[matches12[i].trainIdx].pt);
-    }
+//    const int numGoodMatches = matches12.size() * 0.15f;
+//    matches12.erase(matches.begin() + numGoodMatches, matches12.end());
     
     // From : https://answers.opencv.org/question/15/how-to-get-good-matches-from-the-orb-feature-detection-algorithm/
     for (size_t i = 0; i < matches12.size(); i++)
@@ -139,15 +121,31 @@ void imgMatch(String identify)
         if(backward.trainIdx == forward.queryIdx)
             filteredMatches12.push_back(forward);
     }
-    
+    for (size_t i = 0; i < matches21.size(); i++)
+    {
+        DMatch forward = matches21[i];
+        DMatch backward = matches21[forward.trainIdx];
+        if(backward.trainIdx == forward.queryIdx)
+            filteredMatches21.push_back(forward);
+    }
 
+    for (size_t i = 0; i < matches12.size(); i++)
+    {
+        img1Points.push_back(keypoints1[matches12[i].queryIdx].pt);
+        img2Points.push_back(keypoints2[matches12[i].trainIdx].pt);
+    }
+    
+    
     // Find homography (source pts, dst pts, algorithm)
     Mat h = findHomography(img2Points, img1Points, RANSAC);
     
+    
+    // Draw Matches algorithm
     Mat matchesMatrix;
     drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches12, matchesMatrix);
     imshow("Matches",matchesMatrix);
     waitKey();
+    
     
     // Warp image according to the homography
     warpPerspective(img2, matchesMatrix, h, img1.size());
@@ -178,6 +176,106 @@ void imgMatch(String identify)
 }
 
 
+void imgSIFTMatch(String identify)
+{
+    vector<Mat> matSource;
+    
+    // Load the necessary matrices into the code
+    if(identify == "church")
+    {
+        matSource = loadImages(listOfChurchImages);
+        cout << "Church selected." << endl;
+    }
+    else if(identify == "office")
+    {
+        matSource = loadImages(listOfOfficeImages);
+        cout << "Office selected." << endl;
+    }
+    else if(identify == "wlh"){
+        matSource = loadImages(listOfWLHImages);
+        cout << "WLH selected." << endl;
+    }
+    else
+    {
+        cout << "Error occurred" << endl;
+        return;
+    }
+    Mat img1 = matSource[2];
+    Mat img2 = matSource[3];
+    
+    vector<KeyPoint> keypoints1, keypoints2;
+    Mat descriptors1, descriptors2;
+    vector<Point2f> img1Points, img2Points;
+    
+    int nfeatures = 500;
+    int nOctaveLayers = 3;
+    double contrastThreshold = 0.04;
+    double edgeThreshold = 0.04;
+    double sigma = 1.6;
+    
+    Ptr<Feature2D> f2d = xfeatures2d::SIFT::create(nfeatures, nOctaveLayers,contrastThreshold, edgeThreshold, sigma); // Use all default values for SIFT feature detection
+    f2d->detect(img1,keypoints1);
+    f2d->detect(img2,keypoints2);
+    f2d->compute(img1,keypoints1,descriptors1);
+    f2d->compute(img2,keypoints2,descriptors2);
+    
+    cout << keypoints1.size() << endl;
+    cout << descriptors1.size() << endl;
+    
+    vector<DMatch> matches12, matches21, filteredMatches12;
+    BFMatcher matcher;
+    matcher.match(descriptors1, descriptors2, matches12);
+    matcher.match(descriptors2, descriptors1, matches21);
+    
+    
+    // Filtering matches...
+//    vector<KeyPoint> newKeypoints1, newKeypoints2;
+    
+    for (size_t i = 0; i < matches12.size(); i++)
+    {
+        DMatch forward = matches12[i];
+        DMatch backward = matches21[forward.trainIdx];
+        if(backward.trainIdx == forward.queryIdx)
+        {
+            filteredMatches12.push_back(forward);
+//            newKeypoints1.push_back(keypoints1[i]);
+//            newKeypoints2.push_back(keypoints2[i]);
+        }
+    }
+    
+    
+    // Getting points for homography (can't use old keypoints... need filtering)
+    // Reference: https://stackoverflow.com/questions/5937264/using-opencv-descriptor-matches-with-findfundamentalmat
+//    KeyPoint::convert(newKeypoints1, img1Points);
+//    KeyPoint::convert(newKeypoints2, img2Points);
+//
+//    cout << keypoints1.size() << endl;
+//    cout << newKeypoints1.size() << endl;
+//
+    
+    //TODO:: Transfer all code from SIFT back to ORB and continue development in ORB.
+    for (size_t i = 0; i < filteredMatches12.size(); i++)
+    {
+        img1Points.push_back(keypoints1[filteredMatches12[i].queryIdx].pt);
+        img2Points.push_back(keypoints2[filteredMatches12[i].trainIdx].pt);
+    }
+    
+    // Homography: Want second image to be place on first image, not the other way around (src, dst, method)
+    Mat h = findHomography(img2Points, img1Points, RANSAC);
+    
+    // Draw Matches algorithm
+    Mat matchesMatrix;
+    drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches12, matchesMatrix);
+    imshow("Matches",matchesMatrix);
+    waitKey();
+    
+    // Warp image according to the homography
+    warpPerspective(img2, matchesMatrix, h, img1.size());
+    imshow("Perspective change",matchesMatrix);
+    waitKey();
+    
+}
+
 vector<String> getImages(String path)
 {
     // This function retrieves all images from a folder and returns them in a vector of strings of the file names.
@@ -187,6 +285,23 @@ vector<String> getImages(String path)
     glob(filePath, listOfImages, false);
     
     return listOfImages;
+}
+
+// Need new function to extract features and put them in variables
+vector<Mat> loadImages(vector<String> list)
+{
+    vector<Mat> matImg;
+    
+    for (int i = 0; i < list.size(); i++)
+    {
+        Mat img = imread(list[i]);
+        matImg.push_back(img);
+    }
+    
+//    imshow("test",matImg[2]);
+//    waitKey();
+    
+    return matImg;
 }
 
 void importImages()
@@ -266,22 +381,3 @@ void importImages()
     
     
 }
-
-
-// Need new function to extract features and put them in variables
-vector<Mat> loadImages(vector<String> list)
-{
-    vector<Mat> matImg;
-    
-    for (int i = 0; i < list.size(); i++)
-    {
-        Mat img = imread(list[i]);
-        matImg.push_back(img);
-    }
-    
-//    imshow("test",matImg[2]);
-//    waitKey();
-    
-    return matImg;
-}
-
