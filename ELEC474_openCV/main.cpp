@@ -19,7 +19,6 @@ using namespace cv;
 using namespace std;
 
 // C++ Function Declaration
-void importImages();
 vector<String> getImages(String path);
 vector<Mat> loadImages(vector<String> list);
 void imgORBMatch(String identify);
@@ -127,19 +126,19 @@ void imgORBMatch(String identify)
         matcher->match(descriptors2, descriptors1, matches21, Mat());
         
         // Sort matches to delete the matches that aren't so great
-//        sort(matches12.begin(), matches12.end());
+        sort(matches12.begin(), matches12.end());
         // Remove not good matches
-//        const int numGoodMatches = matches12.size() * 0.05f;
-//        matches12.erase(matches12.begin() + numGoodMatches, matches12.end());
+        const int numGoodMatches = matches12.size() * 0.15f;
+        matches12.erase(matches12.begin() + numGoodMatches, matches12.end());
         
         // From : https://answers.opencv.org/question/15/how-to-get-good-matches-from-the-orb-feature-detection-algorithm/
-        for (size_t i = 0; i < matches12.size(); i++)
-        {
-            DMatch forward = matches12[i];
-            DMatch backward = matches21[forward.trainIdx];
-            if(backward.trainIdx == forward.queryIdx)
-                filteredMatches12.push_back(forward);
-        }
+//        for (size_t i = 0; i < matches12.size(); i++)
+//        {
+//            DMatch forward = matches12[i];
+//            DMatch backward = matches21[forward.trainIdx];
+//            if(backward.trainIdx == forward.queryIdx)
+//                filteredMatches12.push_back(forward);
+//        }
         
         // This for statement might not be needed...
         //    for (size_t i = 0; i < matches21.size(); i++)
@@ -150,10 +149,10 @@ void imgORBMatch(String identify)
         //            filteredMatches21.push_back(forward);
         //    }
         
-        for (size_t i = 0; i < filteredMatches12.size(); i++)
+        for (size_t i = 0; i < matches12.size(); i++)
         {
-            img1Points.push_back(keypoints1[filteredMatches12[i].queryIdx].pt);
-            img2Points.push_back(keypoints2[filteredMatches12[i].trainIdx].pt);
+            img1Points.push_back(keypoints1[matches12[i].queryIdx].pt);
+            img2Points.push_back(keypoints2[matches12[i].trainIdx].pt);
         }
         
         // Find homography (source pts, dst pts, algorithm)
@@ -161,25 +160,23 @@ void imgORBMatch(String identify)
         
         
         // Draw Matches algorithm
-        drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches12, matchesMatrix);
+        drawMatches(img1, keypoints1, img2, keypoints2, matches12, matchesMatrix);
         imshow("Matches",matchesMatrix);
         waitKey();
-        
-        //    cout << img1.size[0] << endl; // height
-        //    cout << img1.size[1] << endl; // width
-        //    cout << img1.size << endl;
         
         // Warp image according to the homography
 //        warpPerspective(img2, pano, h, Size((img1.rows + img2.rows),(img1.cols + img2.cols)));
 //        Mat half(pano, Rect(0,0,img1.cols,img1.rows));
 //        img1.copyTo(half);
         
-        warpPerspective(img2, resultImg, h, Size((img1.rows + img2.rows),(img1.cols + img2.cols)));
-        pano = Mat(resultImg, Rect(0,0,img1.cols,img1.rows));
-        img1.copyTo(pano);
+        warpPerspective(img2, pano, h, Size((img1.rows + img2.rows),(img1.cols + img2.cols)));
+//        pano = resultImg;
         
-        imshow("Perspective change",resultImg);
-        waitKey();
+        Mat half(pano, Rect(0,0,img1.cols,img1.rows));
+        img1.copyTo(half);
+        
+//        imshow("Perspective change",resultImg);
+//        waitKey();
         imshow("Changed image",pano);
         waitKey();
         
@@ -198,7 +195,7 @@ void imgORBMatch(String identify)
         matches21.clear();
         filteredMatches12.clear();
         filteredMatches21.clear();
-//        half.release();
+        half.release();
         detector->clear();
         matcher->clear();
     }
@@ -259,8 +256,6 @@ void imgSIFTMatch(String identify)
     
     
     // Filtering matches...
-//    vector<KeyPoint> newKeypoints1, newKeypoints2;
-    
     for (size_t i = 0; i < matches12.size(); i++)
     {
         DMatch forward = matches12[i];
@@ -268,21 +263,12 @@ void imgSIFTMatch(String identify)
         if(backward.trainIdx == forward.queryIdx)
         {
             filteredMatches12.push_back(forward);
-//            newKeypoints1.push_back(keypoints1[i]);
-//            newKeypoints2.push_back(keypoints2[i]);
         }
     }
     
     
     // Getting points for homography (can't use old keypoints... need filtering)
     // Reference: https://stackoverflow.com/questions/5937264/using-opencv-descriptor-matches-with-findfundamentalmat
-//    KeyPoint::convert(newKeypoints1, img1Points);
-//    KeyPoint::convert(newKeypoints2, img2Points);
-//
-//    cout << keypoints1.size() << endl;
-//    cout << newKeypoints1.size() << endl;
-//
-    
     for (size_t i = 0; i < filteredMatches12.size(); i++)
     {
         img1Points.push_back(keypoints1[filteredMatches12[i].queryIdx].pt);
