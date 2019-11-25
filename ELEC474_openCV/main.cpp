@@ -23,17 +23,17 @@ vector<String> getImages(String path);
 vector<Mat> loadImages(vector<String> list);
 void imgORBMatch(String identify);
 void imgSIFTMatch(String identify);
-void stitching(String identify);
+void stitching(vector<Mat> inputImg);
 
 // Global Variables
 //vector<string> listofImages; // Original plan to do all the file names... ignore forever.
 vector<string>listOfChurchImages = getImages("StJames/*.jpg");
 vector<string>listOfOfficeImages = getImages("office2/*.jpg");
-vector<string>listOfWLHImages = getImages("WLH/*.jpg");
+vector<string>listOfWLHImages = getImages("WLH/*.jpg"); // I may want to manually order the images...
 //vector<Mat> matChurch = loadImages(listOfChurchImages); // loading matrices.
 //vector<Mat> matOffice = loadImages(listOfOfficeImages); // loading matrices.
 //vector<Mat> matwlh = loadImages(listOfWLHImages); // loading matrices
-Mat pano;
+
 
 int main()
 {
@@ -43,13 +43,13 @@ int main()
 //    imshow("test",matChurch[2]);
 //    waitKey();
     
-    //TODO:: Metrics to determine good matches and count them?
-    //TODO:: Determine which image to take as the base image...?
+    //TODO:: Determine which image to take as the base image
     //TODO:: Make sure stitching tool works
+    //TODO:: Keep track of image indices so when one image is placed on another image we know where it goes
     
     imgORBMatch("office"); // Choices: wlh, church, or office
 //    imgSIFTMatch("church"); // Choices: wkh, church, or office
-//    stitching("church");
+//    stitching(matOffice);
     
     return 0;
 }
@@ -81,13 +81,13 @@ void imgORBMatch(String identify)
     }
     
     // All variable declarations
-    Mat img1, img2, descriptors1, descriptors2, h, matchesMatrix, resultImg;
+    Mat img1, img2, descriptors1, descriptors2, h, matchesMatrix, resultImg, pano;
     vector<KeyPoint> keypoints1, keypoints2;
     vector<Point2f> img1Points, img2Points;
     vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
     Ptr<FeatureDetector> detector;
     Ptr<DescriptorMatcher> matcher;
-    int nfeatures = 3000;
+    int nfeatures = 5000;
     float scaleFactor = 1.2f;
     int nlevels = 8;
     int edgeThreshold = 31;
@@ -95,25 +95,21 @@ void imgORBMatch(String identify)
     int WTA_K = 2;
     int patchSize = 31;
     int j = 1; // for loop counter
-    int first = 0; // flag
+    vector<Mat> transformedImg;
     
 //    cout << matSource.size() << endl;
+    transformedImg.push_back(matSource[0]);
+    
+    cout << "Total images to match: " << matSource.size() << endl;
     
     for (j = 0; j < matSource.size(); j++)
     {
-//        if (first == 0)
-//        {
-        if (matSource.size() < j + 1) return;
+
+        if (matSource.size() < j + 2) break;
         img1 = matSource[j];
         img2 = matSource[j+1];
-        
-//            first = 1;
-//        }
-//        else{
-//            img1 = pano;
-//            img2 = matSource[j];
-//        }
-        
+
+        cout << "Feature detection for images " << j << " and " << j+1 << " (Image Index #)." << endl;
         
         // Feature Detector
         detector = ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, ORB::HARRIS_SCORE, patchSize);
@@ -126,7 +122,6 @@ void imgORBMatch(String identify)
         matcher->match(descriptors1, descriptors2, matches12, Mat());
         matcher->match(descriptors2, descriptors1, matches21, Mat());
         
-    
         // Sort matches to get good matches
         filteredMatches12 = matches12;
         
@@ -182,28 +177,20 @@ void imgORBMatch(String identify)
         
         // Find homography (source pts, dst pts, algorithm)
         h = findHomography(img2Points, img1Points, RANSAC);
-    
-    
+        
         // Draw Matches algorithm
         drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches12, matchesMatrix);
-        imshow("Matches",matchesMatrix);
-        waitKey();
-        
-        // Warp image according to the homography
-//        warpPerspective(img2, pano, h, Size((img1.rows + img2.rows),(img1.cols + img2.cols)));
-//        Mat half(pano, Rect(0,0,img1.cols,img1.rows));
-//        img1.copyTo(half);
-        
-        warpPerspective(img2, pano, h, img1.size());//Size((img1.rows + img2.rows),(img1.cols + img2.cols)));
-//        pano = resultImg;
-//        Mat half(pano, Rect(0,0,img1.cols,img1.rows));
-//        img1.copyTo(half);
-        
-        imshow("Perspective change",pano);
-        waitKey();
-//        imshow("Changed image",pano);
+//        imshow("Matches",matchesMatrix);
 //        waitKey();
         
+        // Warp image according to the homography
+        warpPerspective(img2, pano, h, img1.size());//Size((img1.rows + img2.rows),(img1.cols + img2.cols)));
+        
+//        imshow("Perspective change",pano);
+//        waitKey();
+        transformedImg.push_back(pano);
+        
+        cout << "Image transformed and placed in matrix for images " <<  j << " and " << j+1 << "."  << endl;
         
         // Clear all variables
         keypoints1.clear();
@@ -215,6 +202,7 @@ void imgORBMatch(String identify)
         h.release();
         matchesMatrix.release();
         resultImg.release();
+        pano.release();
         matches12.clear();
         matches21.clear();
         filteredMatches12.clear();
@@ -222,7 +210,20 @@ void imgORBMatch(String identify)
 //        half.release();
         detector->clear();
         matcher->clear();
+        
+        
     } // end for loop
+    cout << "Feature detection complete. Now STITCHING." << endl;
+    cout << "Stitching code not developed yet. Exit program." << endl;
+    
+//    stitching(transformedImg);
+    
+//    for (int i = 0; i < transformedImg.size(); i++)
+//    {
+//        imshow("Transformed Images", transformedImg[i]);
+//        waitKey(2000);
+//        cout << "Image #: " << i+1 << endl;
+//    }
     
 }
 
@@ -256,37 +257,15 @@ vector<Mat> loadImages(vector<String> list)
 }
 
 // This stitching function uses the high level Stitcher class...
-void stitching(String identify)
+void stitching(vector<Mat> inputImg)
 {
     // Referenced from: https://docs.opencv.org/3.4/d8/d19/tutorial_stitcher.html
     
-    vector<Mat> matSource;
-    
-    // Load the necessary matrices into the code
-    if(identify == "church")
-    {
-        matSource = loadImages(listOfChurchImages);
-        cout << "Church selected." << endl;
-    }
-    else if(identify == "office")
-    {
-        matSource = loadImages(listOfOfficeImages);
-        cout << "Office selected." << endl;
-    }
-    else if(identify == "wlh"){
-        matSource = loadImages(listOfWLHImages);
-        cout << "WLH selected." << endl;
-    }
-    else
-    {
-        cout << "Error occurred" << endl;
-        return;
-    }
-    
-    Mat pano;
+    vector<Mat> matSource = inputImg;
+    Mat panorama;
     Stitcher::Mode mode = Stitcher::PANORAMA;
     Ptr<Stitcher>stitcher = Stitcher::create(mode);
-    Stitcher::Status status = stitcher->stitch(matSource, pano);
+    Stitcher::Status status = stitcher->stitch(matSource, panorama);
     
     if(status != Stitcher::OK)
     {
@@ -294,10 +273,8 @@ void stitching(String identify)
         return;
     }
     
-    imshow("Pano image",pano);
+    imshow("Pano image",panorama);
     waitKey();
-    
-    
     
 }
 
