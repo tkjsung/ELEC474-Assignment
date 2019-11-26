@@ -33,7 +33,7 @@ int main()
     int baseIdx;
  
     listOfImages = getImages("office2/*.jpg");
-    overlapped = pickOverlap(listOfImages, 3, 130, 40, 10);
+    overlapped = pickOverlap(listOfImages, 10, 130, 40, 10);
     baseIdx = pickBase(listOfImages, overlapped);
     panorama(listOfImages, overlapped, baseIdx, 500, 3000, 2000);
  
@@ -341,7 +341,7 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
             // Use homography to warp image
             //warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
  
-            if (h.at<double>(2,1) < 0)
+            if ((h.at<double>(2,1) < 0) | (h.at<double>(2,0) < 0))
             {
                 h = estimateAffine2D(pointsTrans, pointsBase);
                 warpAffine(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
