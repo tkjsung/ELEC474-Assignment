@@ -307,7 +307,48 @@ void stitching(vector<Mat> inputImg)
 }
 
 
-Mat mask(Mat img1, Mat img2, String version)
+Mat mask(Mat img1, Mat img2, String version, int smoothing_window_size)
 {
+    int height_img1 = img1.rows;
+    int width_img1 = img1.cols;
+    int width_img2 = img2.cols;
+    int height_panorama = height_img1;
+    int width_panorama = width_img1 + width_img2;
+    int offset = smoothing_window_size/2;
+    int barrier = img1.cols - smoothing_window_size/2;
+    Mat mask = Mat::zeros(height_panorama, width_panorama, CV_8UC3);
     
+    if (version == "left_image")
+    {
+        for(int r = 0; r < mask.rows; r++)
+        {
+            for (int c = 0; c < mask.cols; c++)
+            {
+                mask.at<unsigned char>(r,c)
+            }
+        }
+    }
+    
+    
+    /*
+     height_img1 = img1.shape[0]
+     width_img1 = img1.shape[1]
+     width_img2 = img2.shape[1]
+     height_panorama = height_img1
+     width_panorama = width_img1 +width_img2
+     offset = int(self.smoothing_window_size / 2)
+     barrier = img1.shape[1] - int(self.smoothing_window_size / 2)
+     mask = np.zeros((height_panorama, width_panorama))
+     if version== 'left_image':
+         mask[:, barrier - offset:barrier + offset ] = np.tile(np.linspace(1, 0, 2 * offset ).T, (height_panorama, 1))
+         mask[:, :barrier - offset] = 1
+     else:
+         mask[:, barrier - offset :barrier + offset ] = np.tile(np.linspace(0, 1, 2 * offset ).T, (height_panorama, 1))
+         mask[:, barrier + offset:] = 1
+     return cv2.merge([mask, mask, mask])
+     */
+    
+    
+    return;
 }
+
