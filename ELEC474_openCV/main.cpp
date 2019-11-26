@@ -305,3 +305,9 @@ void stitching(vector<Mat> inputImg)
     waitKey();
     
 }
+
+
+Mat mask(Mat img1, Mat img2, String version)
+{
+    
+}
