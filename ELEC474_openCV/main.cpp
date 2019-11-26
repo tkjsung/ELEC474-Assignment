@@ -1,435 +1,390 @@
-// ELEC 474 Take Home Exam
-// Author: Tom Sung
-
+// This is the ELEC 474 final course project/take home exam. Steven Crosby (#20011059)
+ 
 // C++ Standard Libraries
 #include <iostream>
 #include <stdio.h>
 #include <vector>
 #include <math.h>
-
-// OpenCV Imports
+ 
+// OpenCV Import
 #include <opencv2/opencv.hpp>
-#include "opencv2/highgui.hpp"
-#include "opencv2/core.hpp"
-#include "opencv2/imgproc.hpp"
-#include <opencv2/xfeatures2d.hpp>
-
+ 
 // Use OpenCV namespace
 using namespace cv;
 using namespace std;
-
-// C++ Function Declaration
+ 
+// Create a struct to hold indices of two well-matched (overlapping) images, & another to hold the overlapped file names
+struct Pair
+{
+    int id1, id2;
+};
+ 
+struct filePair
+{
+    String file1, file2;
+};
+ 
+// Function declarations
 vector<String> getImages(String path);
-vector<Mat> loadImages(vector<String> list);
-void imgORBMatch(String identify);
-void imgSIFTMatch(String identify);
-void stitching(vector<Mat> inputImg);
-
-// Global Variables
-//vector<string> listofImages; // Original plan to do all the file names... ignore forever.
-vector<string>listOfChurchImages = getImages("StJames/*.jpg");
-vector<string>listOfOfficeImages = getImages("office2/*.jpg");
-vector<string>listOfWLHImages = getImages("WLH/*.jpg"); // I may want to manually order the images...
-//vector<Mat> matChurch = loadImages(listOfChurchImages); // loading matrices.
-//vector<Mat> matOffice = loadImages(listOfOfficeImages); // loading matrices.
-//vector<Mat> matwlh = loadImages(listOfWLHImages); // loading matrices
-
-
+vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches);
+int pickBase(vector<String> listOfImages, vector<Pair> overlapping);
+void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n);
+ 
 int main()
 {
-
-//    vector<Mat> matChurch = loadImages(listOfChurchImages);
-//    cout << matChurch[0] << endl;
-//    imshow("test",matChurch[2]);
-//    waitKey();
-    
-    //TODO:: Determine which image to take as the base image
-    //TODO:: Make sure stitching tool works
-    //TODO:: Keep track of image indices so when one image is placed on another image we know where it goes
-    
-    imgORBMatch("church"); // Choices: wlh, church, or office
-//    imgSIFTMatch("church"); // Choices: wkh, church, or office
-//    stitching(matOffice);
-    
-    return 0;
+    vector<String> listOfImages;
+    vector<Pair> overlapped;
+    int baseIdx;
+ 
+    listOfImages = getImages("office2/*.jpg");
+    overlapped = pickOverlap(listOfImages, 10, 130, 40, 10);
+    baseIdx = pickBase(listOfImages, overlapped);
+    panorama(listOfImages, overlapped, baseIdx, 500, 3000, 2000);
+ 
+    //overlapped = pickOverlap_fast(listOfImages, 2, 130, 40, 3, 1400);
+    //baseIdx = pickBase_fast(listOfImages, overlapped);
+    //panorama_fast(listOfImages, overlapped, baseIdx, 1400, 5, 2000);
 }
-
-// Reference: https://towardsdatascience.com/image-stitching-using-opencv-817779c86a83
-void imgORBMatch(String identify)
-{
-    vector<Mat> matSource;
-    
-    // Load the necessary matrices into the code
-    if(identify == "church")
-    {
-        matSource = loadImages(listOfChurchImages);
-        cout << "Church selected." << endl;
-    }
-    else if(identify == "office")
-    {
-        matSource = loadImages(listOfOfficeImages);
-        cout << "Office selected." << endl;
-    }
-    else if(identify == "wlh"){
-        matSource = loadImages(listOfWLHImages);
-        cout << "WLH selected." << endl;
-    }
-    else
-    {
-        cout << "Error occurred" << endl;
-        return;
-    }
-    
-    // All variable declarations
-    Mat img1, img2, descriptors1, descriptors2, h, matchesMatrix, resultImg, pano;
-    vector<KeyPoint> keypoints1, keypoints2;
-    vector<Point2f> img1Points, img2Points;
-    vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
-    Ptr<FeatureDetector> detector;
-    Ptr<DescriptorMatcher> matcher;
-    int nfeatures = 5000;
-    float scaleFactor = 1.2f;
-    int nlevels = 8;
-    int edgeThreshold = 31;
-    int firstLevel = 0;
-    int WTA_K = 2;
-    int patchSize = 31;
-    int j = 1; // for loop counter
-    vector<Mat> transformedImg;
-    
-//    cout << matSource.size() << endl;
-    transformedImg.push_back(matSource[0]);
-    
-    cout << "Total images to match: " << matSource.size() << endl;
-    
-//    for (j = 0; j < matSource.size(); j++)
-    for (j = 0; j < 1; j++)
-    {
-
-//        if (matSource.size() < j + 2) break;
-        img1 = matSource[j];
-        img2 = matSource[j+1];
-
-        cout << "Feature detection for images " << j << " and " << j+1 << " (Image Index #)." << endl;
-        
-        // Feature Detector
-        detector = ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, ORB::HARRIS_SCORE, patchSize);
-        detector->detectAndCompute(img1, Mat(), keypoints1, descriptors1);
-        detector->detectAndCompute(img2, Mat(), keypoints2, descriptors2);
-        
-        // Match features
-        //vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
-        matcher = DescriptorMatcher::create("BruteForce-Hamming");
-        matcher->match(descriptors1, descriptors2, matches12, Mat());
-        matcher->match(descriptors2, descriptors1, matches21, Mat());
-        
-        // Sort matches to get good matches
-        filteredMatches12 = matches12;
-        
-        for (int i = 0; i < filteredMatches12.size(); i++)
-        {
-            for (int j = 0; j < filteredMatches12.size() - 1; j++)
-            {
-                if (filteredMatches12[j].distance > filteredMatches12[j + 1].distance)
-                {
-                    auto temp = filteredMatches12[j];
-                    filteredMatches12[j] = filteredMatches12[j + 1];
-                    filteredMatches12[j + 1] = temp;
-                }
-            }
-        }
-        
-        if (filteredMatches12.size() > 20)
-        {
-            filteredMatches12.resize(20);
-        }
-        
-        
-        // same thing as above...?
-//        sort(matches12.begin(), matches12.end());
-//        // Remove not good matches
-//        const int numGoodMatches = matches12.size() * 0.15f;
-//        matches12.erase(matches12.begin() + numGoodMatches, matches12.end());
-//
-        
-        // From : https://answers.opencv.org/question/15/how-to-get-good-matches-from-the-orb-feature-detection-algorithm/
-//        for (size_t i = 0; i < matches12.size(); i++)
-//        {
-//            DMatch forward = matches12[i];
-//            DMatch backward = matches21[forward.trainIdx];
-//            if(backward.trainIdx == forward.queryIdx)
-//                filteredMatches12.push_back(forward);
-//        }
-    
-    // This for statement might not be needed...
-//        for (size_t i = 0; i < matches21.size(); i++)
-//        {
-//            DMatch forward = matches21[i];
-//            DMatch backward = matches21[forward.trainIdx];
-//            if(backward.trainIdx == forward.queryIdx)
-//                filteredMatches21.push_back(forward);
-//        }
-    
-        for (size_t i = 0; i < filteredMatches12.size(); i++)
-        {
-            img1Points.push_back(keypoints1[filteredMatches12[i].queryIdx].pt);
-            img2Points.push_back(keypoints2[filteredMatches12[i].trainIdx].pt);
-        }
-        
-        // Find homography (source pts, dst pts, algorithm)
-        h = findHomography(img2Points, img1Points, RANSAC); // Outputs 64F... double matrix type
-//        cout << h.at<float>(0,2) << endl;
-        vector<Point> pt_orig, pt_transform;
-        for (int i = 0; i < 4; i++)
-        {
-            Point temp;
-            temp.x = 0;
-            temp.y = 0;
-            pt_orig.push_back(temp);
-            pt_transform.push_back(temp);
-        }
-        
-        pt_orig[0].x = 0; // This is upper left
-        pt_orig[0].y = 0;
-        pt_orig[1].x = img2.cols; // This is upper right
-        pt_orig[1].y = 0;
-        pt_orig[2].x = 0; // This is lower left
-        pt_orig[2].y = img2.rows;
-        pt_orig[3].x = img2.rows; // This is lower right
-        pt_orig[3].y = img2.cols;
-        
-        for (int i = 0; i < 4; i++)
-        {
-            double a, b, c;
-            a = pt_orig[i].x * h.at<double>(0,0);
-            b = pt_orig[i].y * h.at<double>(0,1);
-            c = h.at<double>(0,2);
-//            cout << "a: " << a << " b: " << b << " c: " << c << endl;
-            pt_transform[i].x = a + b + c;
-            
-            a = pt_orig[i].x * h.at<double>(1,0);
-            b = pt_orig[i].y * h.at<double>(1,1);
-            c = h.at<double>(1,2);
-//            cout << "a: " << a << " b: " << b << " c: " << c << endl;
-            pt_transform[i].y = a + b + c;
-            
-            cout << "Transformed point " << i << ": " << pt_transform[i] << endl;
-        }
-        
-        
-//        Point pt_u1, pt_u2, pt_l1, pt_l2;
-//        pt_u1.x = 0;
-//        pt_u1.y = 0;
-//        pt_u2.x = 0;
-//        pt_u2.y = img2.cols;
-//        pt_l1.x = img2.rows;
-//        pt_l1.y = 0;
-//        pt_u2.x = img2.cols;
-//        pt_u2.y = img2.rows;
-        
-        // Draw Matches algorithm
-        drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches12, matchesMatrix);
-        imshow("Matches",matchesMatrix);
-        waitKey();
-        
-        // Warp image according to the homography
-        warpPerspective(img2, pano, h, img1.size());//Size((img1.rows + img2.rows),(img1.cols + img2.cols)));
-        
-        imshow("Perspective change",pano);
-//        imwrite("test.jpg", pano);
-        waitKey();
-        transformedImg.push_back(pano);
-        
-        cout << "Image transformed and placed in matrix for images " <<  j << " and " << j+1 << "."  << endl;
-        
-        // Clear all variables
-        keypoints1.clear();
-        keypoints2.clear();
-        img1Points.clear();
-        img2Points.clear();
-        descriptors1.release();
-        descriptors2.release();
-        h.release();
-        matchesMatrix.release();
-        resultImg.release();
-        pano.release();
-        matches12.clear();
-        matches21.clear();
-        filteredMatches12.clear();
-        filteredMatches21.clear();
-//        half.release();
-        detector->clear();
-        matcher->clear();
-        
-        
-    } // end for loop
-    cout << "Feature detection complete. Now STITCHING." << endl;
-    cout << "Stitching code not developed yet. Exit program." << endl;
-    
-//    stitching(transformedImg);
-    
-//    for (int i = 0; i < transformedImg.size(); i++)
-//    {
-//        imshow("Transformed Images", transformedImg[i]);
-//        waitKey(2000);
-//        cout << "Image #: " << i+1 << endl;
-//    }
-    
-}
-
-
+ 
+// This function retrieves all images from a folder and returns them in a vector of strings of the file names.
 vector<String> getImages(String path)
 {
-    // This function retrieves all images from a folder and returns them in a vector of strings of the file names.
-    
     String filePath = path;
     vector<String> listOfImages;
     glob(filePath, listOfImages, false);
-    
+ 
+    //for (int i = 0; i < listOfImages.size(); i++) cout << "index " << i << ", file " << listOfImages[i] << endl;
+   
     return listOfImages;
 }
-
-// Need new function to extract features and put them in variables
-vector<Mat> loadImages(vector<String> list)
+ 
+// This function selects the images that overlap & returns a vector of pairs that contain the overlapping indices
+vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches)
 {
-    vector<Mat> matImg;
-    
-    for (int i = 0; i < list.size(); i++)
+    int numRand = (listOfImages.size()) * multiplier;
+    RNG rng((uint64)-1);
+ 
+    vector<Pair> goodPairs;
+    vector<int> hisList1, hisList2, matchedList; // History Lists (of all checked)
+ 
+    for (int j = 0; j < listOfImages.size(); j++) matchedList.push_back(0);
+ 
+    for (int i = 0; i < numRand; i++)
     {
-        Mat img = imread(list[i]);
-        matImg.push_back(img);
-    }
-    
-//    imshow("test",matImg[2]);
-//    waitKey();
-    
-    return matImg;
-}
-
-// This stitching function uses the high level Stitcher class...
-void stitching(vector<Mat> inputImg)
-{
-    // Referenced from: https://docs.opencv.org/3.4/d8/d19/tutorial_stitcher.html
-    
-    vector<Mat> matSource = inputImg;
-    Mat panorama;
-    Stitcher::Mode mode = Stitcher::PANORAMA;
-    Ptr<Stitcher>stitcher = Stitcher::create(mode);
-    Stitcher::Status status = stitcher->stitch(matSource, panorama);
-    
-    if(status != Stitcher::OK)
-    {
-        cout << "Cannot stitch images" << endl;
-        return;
-    }
-    
-    imshow("Pano image",panorama);
-    waitKey();
-    
-}
-
-
-// SIFT Matching. Ignore this.
-/*
-void imgSIFTMatch(String identify)
-{
-    vector<Mat> matSource;
-    
-    // Load the necessary matrices into the code
-    if(identify == "church")
-    {
-        matSource = loadImages(listOfChurchImages);
-        cout << "Church selected." << endl;
-    }
-    else if(identify == "office")
-    {
-        matSource = loadImages(listOfOfficeImages);
-        cout << "Office selected." << endl;
-    }
-    else if(identify == "wlh"){
-        matSource = loadImages(listOfWLHImages);
-        cout << "WLH selected." << endl;
-    }
-    else
-    {
-        cout << "Error occurred" << endl;
-        return;
-    }
-    Mat img1 = matSource[2];
-    Mat img2 = matSource[3];
-    
-    vector<KeyPoint> keypoints1, keypoints2;
-    Mat descriptors1, descriptors2;
-    vector<Point2f> img1Points, img2Points;
-    
-    int nfeatures = 500;
-    int nOctaveLayers = 3;
-    double contrastThreshold = 0.04;
-    double edgeThreshold = 0.04;
-    double sigma = 1.6;
-    
-    Ptr<Feature2D> f2d = xfeatures2d::SIFT::create(nfeatures, nOctaveLayers,contrastThreshold, edgeThreshold, sigma); // Use all default values for SIFT feature detection
-    f2d->detect(img1,keypoints1);
-    f2d->detect(img2,keypoints2);
-    f2d->compute(img1,keypoints1,descriptors1);
-    f2d->compute(img2,keypoints2,descriptors2);
-    
-    cout << keypoints1.size() << endl;
-    cout << descriptors1.size() << endl;
-    
-    vector<DMatch> matches12, matches21, filteredMatches12;
-    BFMatcher matcher;
-    matcher.match(descriptors1, descriptors2, matches12);
-    matcher.match(descriptors2, descriptors1, matches21);
-    
-    
-    // Filtering matches...
-    for (size_t i = 0; i < matches12.size(); i++)
-    {
-        DMatch forward = matches12[i];
-        DMatch backward = matches21[forward.trainIdx];
-        if(backward.trainIdx == forward.queryIdx)
+        // Randomly select 2 images from the folder
+        int idx1 = (int)rng.uniform(0, (int)listOfImages.size());
+        int idx2 = (int)rng.uniform(0, (int)listOfImages.size());
+        if (idx1 == idx2) continue;
+ 
+        // Check if this set of 2 images has already been checked, and if so, skip
+        int flag = 0;
+        int flag1 = 0;
+        int flag2 = 0;
+        for (int j = 0; j < hisList1.size(); j++)
         {
-            filteredMatches12.push_back(forward);
+            if (((hisList1[j] == idx1) && (hisList2[j] == idx2)) | ((hisList2[j] == idx1) && (hisList1[j] == idx2)))
+            {
+                flag = 1;
+                //cout << "History repeated " << idx1 << ", " << idx2 << endl;
+                break;
+            }
         }
+ 
+        if (flag == 1) continue;
+        if ((flag1 == 1) & (flag2 == 1))
+        {
+            cout << listOfImages[idx1] << " & " << listOfImages[idx2] << " already matched " << maxMatches << " times. Moving on..." << endl;
+            continue;
+        }
+        if (matchedList[idx1] == maxMatches) flag1 = 1;
+        if (matchedList[idx2] == maxMatches) flag2 = 1;
+ 
+        // Put the indices of the current images onto the lists to be checked for repetition in further loops
+        hisList1.push_back(idx1);
+        hisList2.push_back(idx2);
+ 
+        // Retrieve and resize the images
+        Mat image1 = imread(listOfImages[idx1]);
+        Mat image2 = imread(listOfImages[idx2]);
+        resize(image1, image1, Size(), 0.25, 0.25, INTER_NEAREST);
+        resize(image2, image2, Size(), 0.25, 0.25, INTER_NEAREST);
+ 
+        // Detect matches in the two images
+        vector<KeyPoint> keypoints1, keypoints2;
+        Mat descriptors1, descriptors2;
+ 
+        int nfeatures = 500;
+        float scaleFactor = 1.2f;
+        int nlevels = 8;
+        int edgeThreshold = 31;
+        int firstLevel = 0;
+        int WTA_K = 2;
+        int patchSize = 31;
+ 
+        // Feature detector
+        Ptr<FeatureDetector> detector = ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, ORB::HARRIS_SCORE, patchSize);
+        detector->detectAndCompute(image1, Mat(), keypoints1, descriptors1);
+        detector->detectAndCompute(image2, Mat(), keypoints2, descriptors2);
+ 
+        // Match features
+        vector<DMatch> matches;
+        Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
+        matcher->match(descriptors1, descriptors2, matches, Mat());
+ 
+        // Sort matches by score
+        sort(matches.begin(), matches.end());
+ 
+        // Remove not good matches
+        const int numGoodMatches = matches.size() * 0.1f;
+        matches.erase(matches.begin() + numGoodMatches, matches.end());
+ 
+        vector<Point2f> kp1List, kp2List, kp2Trans;
+        for (int q = 0; q < matches.size(); q++)
+        {
+            kp1List.push_back(keypoints1[matches[q].queryIdx].pt);
+            kp2List.push_back(keypoints2[matches[q].trainIdx].pt);
+        }
+ 
+        Mat imgTransed, h;
+ 
+        // Find homography
+        h = findHomography(kp2List, kp1List, RANSAC);
+        perspectiveTransform(kp2List, kp2Trans, h);
+ 
+        int inliers = 0;
+ 
+        for (int q = 0; q < kp1List.size(); q++)
+        {
+            float piecex, piecey, diff;
+            int kp1x = kp1List[q].x;
+            int kp2x = kp2Trans[q].x;
+            int kp1y = kp1List[q].y;
+            int kp2y = kp2Trans[q].y;
+           
+            piecex = pow((abs(kp1x - kp2x)), 2);
+            piecey = pow((abs(kp1y - kp2y)), 2);
+            diff = sqrt(piecex + piecey);
+ 
+            if (diff <= thresh) inliers++;
+        }
+ 
+        if (inliers >= inlierThresh)
+        {
+            cout << listOfImages[idx1] << " & " << listOfImages[idx2] << " OVERLAP w/ inliers: " << inliers << endl;
+            Pair current;
+            current.id1 = idx1;
+            current.id2 = idx2;
+            goodPairs.push_back(current);
+            matchedList.at(idx1) = matchedList[idx1] + 1;
+            matchedList.at(idx2) = matchedList[idx2] + 1;
+        }
+        else cout << listOfImages[idx1] << " & " << listOfImages[idx2] << " **DO NOT** overlap. Inliers: " << inliers << endl;
+ 
+        // Make a vector, goodPairs, of pairs of corresponding well-matched images
     }
  
-    // Lowe's Test... can only be used in SIFT.
-    const float ratio_thresh = 0.7f;
-    //vector<DMatch> good_matches;
-    for (size_t i = 0; i < matches12.size(); i++)
+    return goodPairs;
+}
+ 
+// This looks at the overlapping pairs and finds the most common image, and returns its index as a 'base' in the panorama
+int pickBase(vector<String> listOfImages, vector<Pair> overlapping)
+{
+    int countMax = 0;
+    int base = -1;
+    for (int i = 0; i < listOfImages.size(); i++)
     {
-        if (matches12[i].distance < ratio_thresh * matches21[i].distance)
+        int count = 0;
+        for (int j = 0; j < overlapping.size(); j++)
         {
-            filteredMatches12.push_back(matches12[i]);
+            if ((overlapping[j].id1 == i) | (overlapping[j].id2 == i)) count++;
+        }
+        //cout << i << " overlapped w/ " << count << " other images" << endl;
+        if (count > countMax)
+        {
+            base = i;
+            countMax = count;
         }
     }
-    
-    
-    // Getting points for homography (can't use old keypoints... need filtering)
-    // Reference: https://stackoverflow.com/questions/5937264/using-opencv-descriptor-matches-with-findfundamentalmat
-    for (size_t i = 0; i < filteredMatches12.size(); i++)
-    {
-        img1Points.push_back(keypoints1[filteredMatches12[i].queryIdx].pt);
-        img2Points.push_back(keypoints2[filteredMatches12[i].trainIdx].pt);
-    }
-    
-    // Homography: Want second image to be place on first image, not the other way around (src, dst, method)
-    Mat h = findHomography(img2Points, img1Points, RANSAC);
-    
-    // Draw Matches algorithm
-    Mat matchesMatrix;
-    drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches12, matchesMatrix);
-    imshow("Matches",matchesMatrix);
-    waitKey();
-    
-    // Warp image according to the homography
-    warpPerspective(img2, matchesMatrix, h, img1.size());
-    imshow("Perspective change",matchesMatrix);
-    waitKey();
-    
+    cout << "Base is image w/ index " << base << endl;
+    return base;
 }
-*/
-
-
-// Reference: https://pastebin.com/k4JfdTWx
+ 
+// This stitches images previously deemed 'good matches' together to create the panorama
+void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n)
+{
+    Mat image1 = imread(listOfImages[base]); //image1 is the CURRENT BASE; "base" to start, and then the current pano for future iterations
+    Mat image2;
+    vector<int> alreadyDone;
+    alreadyDone.push_back(base);
+    int lastAdded = base;
+    resize(image1, image1, Size(), 0.25, 0.25, INTER_NEAREST);
+    copyMakeBorder(image1, image1, padding_top, padding_top, padding_side, padding_side, BORDER_CONSTANT, Scalar(0));
+    Mat next_base = image1.clone();
+    int out_of_options = 1;
+    int nowAdd;
+    int keepGoing = 0;
+    //int hisIdx[20];
+    array<int, 30> hisIdx;
+    vector<Mat> history;
+    for (int j = 0; j < listOfImages.size(); j++)
+    {
+        Mat temp;
+        history.push_back(temp);
+        hisIdx[j] = 0;
+    }
+    int q = 0;
+    int ecount = 0;
+ 
+    hisIdx[base] = 1;
+    history.at(base) = image1;
+ 
+    //for (int q = 0; q < listOfImages.size(); q++)
+    while (q < (listOfImages.size() - 1))
+    //for (int q = 0; q < 3; q++)
+    {
+        Mat img2Transed;
+        keepGoing = 0;
+        cout << "Looking for image to stitch to " << lastAdded << endl;
+        for (int r = 0; r < overlapping.size(); r++)
+        {
+            if (overlapping[r].id1 == lastAdded)
+            {
+                nowAdd = overlapping[r].id2;
+                keepGoing = 1;
+                cout << "Found image to stitch: " << nowAdd << endl;
+                //alreadyDone.push_back(nowAdd);
+                overlapping.erase(overlapping.begin() + r);
+                ecount = 0;
+                break;
+            }
+            else if (overlapping[r].id2 == lastAdded)
+            {
+                nowAdd = overlapping[r].id1;
+                keepGoing = 1;
+                cout << "Found image to stitch: " << nowAdd << endl;
+                //alreadyDone.push_back(nowAdd);
+                overlapping.erase(overlapping.begin() + r);
+                ecount = 0;
+                break;
+            }
+        }
+        if (keepGoing == 0)
+        {
+            if (ecount == 0)
+            {
+                cout << "Found no image to stitch! Look for image to stitch to base, " << base << endl;
+                nowAdd = base;
+                ecount++;
+            }
+            else
+            {
+                cout << "Still found no image to stitch! Ending program." << endl;
+                break;
+            }
+            /*if (ecount == max_ecount)
+            {
+                cout << "Too many failed tries. Ending program" << endl;
+                break;
+            }*/
+        }
+        if (hisIdx[nowAdd] != 0)
+        {
+            cout << "Image " << nowAdd << " already stitched" << endl;
+            img2Transed = history[nowAdd];
+        }
+        else
+        {
+            image2 = imread(listOfImages[nowAdd]);
+            resize(image2, image2, Size(), 0.25, 0.25, INTER_NEAREST);
+            copyMakeBorder(image2, image2, padding_top, padding_top, padding_side, padding_side, BORDER_CONSTANT, Scalar(0));
+ 
+            // Detect matches in the two images
+            vector<KeyPoint> keypoints1, keypoints2;
+            Mat descriptors1, descriptors2;
+ 
+            int nfeatures = n;
+            float scaleFactor = 1.2f;
+            int nlevels = 8;
+            int edgeThreshold = 31;
+            int firstLevel = 0;
+            int WTA_K = 2;
+            int patchSize = 31;
+ 
+            // Feature detector
+            Ptr<FeatureDetector> detector = ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, ORB::HARRIS_SCORE, patchSize);
+            detector->detectAndCompute(next_base, Mat(), keypoints1, descriptors1);
+            detector->detectAndCompute(image2, Mat(), keypoints2, descriptors2);
+ 
+            // Match features
+            vector<DMatch> matches;
+            Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
+            matcher->match(descriptors1, descriptors2, matches, Mat());
+ 
+            // Sort matches by score
+            sort(matches.begin(), matches.end());
+ 
+            // Remove not good matches
+            const int numGoodMatches = matches.size() * 0.15f;
+            matches.erase(matches.begin() + numGoodMatches, matches.end());
+ 
+            vector<Point2f> pointsBase, pointsTrans;
+ 
+            for (size_t i = 0; i < matches.size(); i++)
+            {
+                pointsBase.push_back(keypoints1[matches[i].queryIdx].pt);
+                pointsTrans.push_back(keypoints2[matches[i].trainIdx].pt);
+            }
+ 
+ 
+            Mat img1Transed, h;
+ 
+            // Find homography
+//            h = findHomography(pointsTrans, pointsBase, RANSAC);
+            h = estimateAffine2D(pointsTrans, pointsBase);
+            warpAffine(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
+ 
+            // Use homography to warp image
+//            warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
+ 
+            Mat imgPan;
+ 
+            for (int r = 0; r < image1.rows; r++)
+            {
+                for (int c = 0; c < image1.cols; c++)
+                {
+                    if ((image1.at<Vec3b>(r, c)[0] == 0) & (image1.at<Vec3b>(r, c)[1] == 0) & (image1.at<Vec3b>(r, c)[2] == 0))
+                    {
+                        image1.at<Vec3b>(r, c)[0] = img2Transed.at<Vec3b>(r, c)[0];
+                        image1.at<Vec3b>(r, c)[1] = img2Transed.at<Vec3b>(r, c)[1];
+                        image1.at<Vec3b>(r, c)[2] = img2Transed.at<Vec3b>(r, c)[2];
+                    }
+                    /*else
+                    {
+                        image1.at<Vec3b>(r, c)[0] = (image1.at<Vec3b>(r, c)[0] + img2Transed.at<Vec3b>(r, c)[0]) / 2;
+                        image1.at<Vec3b>(r, c)[1] = (image1.at<Vec3b>(r, c)[1] + img2Transed.at<Vec3b>(r, c)[1]) / 2;
+                        image1.at<Vec3b>(r, c)[2] = (image1.at<Vec3b>(r, c)[2] + img2Transed.at<Vec3b>(r, c)[2]) / 2;
+                    }*/
+                }
+            }
+            hisIdx[nowAdd] = 1;
+            history.at(nowAdd) = img2Transed;
+            q++;
+        }
+        lastAdded = nowAdd;
+        next_base = img2Transed.clone();
+ 
+        /*namedWindow("Stitching", WINDOW_KEEPRATIO);
+        imshow("Stitching", image1);
+        cout << "Loaded new image" << endl;
+        waitKey();*/
+    }
+ 
+    namedWindow("Panorama", WINDOW_KEEPRATIO);
+    imshow("Panorama", image1);
+    waitKey();
+ 
+    history.clear();
+    listOfImages.clear();
+    overlapping.clear();
+    alreadyDone.clear();
+}
