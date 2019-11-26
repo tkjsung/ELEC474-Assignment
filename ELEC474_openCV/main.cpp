@@ -24,6 +24,7 @@ vector<String> getImages(String path);
 vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches);
 int pickBase(vector<String> listOfImages, vector<Pair> overlapping);
 void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n);
+Mat fixLight(Mat image);
 void test(String image);
  
 int main()
@@ -32,10 +33,10 @@ int main()
     vector<Pair> overlapped;
     int baseIdx;
  
-    listOfImages = getImages("office2/*.jpg");
+    listOfImages = getImages("StJames/*.jpg");
     overlapped = pickOverlap(listOfImages, 10, 130, 40, 10);
     baseIdx = pickBase(listOfImages, overlapped);
-    panorama(listOfImages, overlapped, baseIdx, 500, 3000, 2000);
+    panorama(listOfImages, overlapped, baseIdx, 300, 2000, 2000);
  
     //test("office2/a.jpg");
  
@@ -216,6 +217,7 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
     alreadyDone.push_back(base);
     int lastAdded = base;
     resize(image1, image1, Size(), 0.25, 0.25, INTER_NEAREST);
+    image1 = fixLight(image1);
     copyMakeBorder(image1, image1, padding_top, padding_top, padding_side, padding_side, BORDER_CONSTANT, Scalar(0));
     Mat next_base = image1.clone();
     int out_of_options = 1;
@@ -294,6 +296,7 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
         {
             image2 = imread(listOfImages[nowAdd]);
             resize(image2, image2, Size(), 0.25, 0.25, INTER_NEAREST);
+            image2 = fixLight(image2);
             copyMakeBorder(image2, image2, padding_top, padding_top, padding_side, padding_side, BORDER_CONSTANT, Scalar(0));
  
             // Detect matches in the two images
@@ -341,12 +344,12 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
             // Use homography to warp image
             //warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
  
-            if ((h.at<double>(2,1) < 0) | (h.at<double>(2,0) < 0))
+            /*if (h.at<double>(2,1) < 0)
             {
                 h = estimateAffine2D(pointsTrans, pointsBase);
                 warpAffine(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
             }
-            else
+            else*/
                 warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
                 //cout << h << endl;
  
@@ -391,6 +394,24 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
     listOfImages.clear();
     overlapping.clear();
     alreadyDone.clear();
+}
+ 
+Mat fixLight(Mat image)
+{
+    Mat ycrcb;
+ 
+    cvtColor(image, ycrcb, COLOR_BGR2YCrCb);
+ 
+    vector<Mat> channels;
+    split(ycrcb, channels);
+ 
+    equalizeHist(channels[0], channels[0]);
+ 
+    Mat result;
+    merge(channels, ycrcb);
+ 
+    cvtColor(ycrcb, result, COLOR_YCrCb2BGR);
+    return result;
 }
  
 void test(String image)
