@@ -23,8 +23,9 @@ struct Pair
 vector<String> getImages(String path);
 vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches);
 int pickBase(vector<String> listOfImages, vector<Pair> overlapping);
-void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n);
+Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n, int toggle_2d);
 Mat fixLight(Mat image);
+Mat fixLightingFinal(Mat image);
 void test(String image);
  
 int main()
@@ -32,11 +33,13 @@ int main()
     vector<String> listOfImages;
     vector<Pair> overlapped;
     int baseIdx;
+    Mat pano;
  
-    listOfImages = getImages("StJames/*.jpg");
-    overlapped = pickOverlap(listOfImages, 10, 130, 40, 10);
+    listOfImages = getImages("WLH/*.jpg");
+    overlapped = pickOverlap(listOfImages, 12, 110, 85, 10);
     baseIdx = pickBase(listOfImages, overlapped);
-    panorama(listOfImages, overlapped, baseIdx, 300, 2000, 2000);
+    pano = panorama(listOfImages, overlapped, baseIdx, 1000, 2500, 2000, 0);
+    imwrite("WLH_Pano_Steven.jpg", pano);
  
     //test("office2/a.jpg");
  
@@ -112,7 +115,7 @@ vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh
         vector<KeyPoint> keypoints1, keypoints2;
         Mat descriptors1, descriptors2;
  
-        int nfeatures = 500;
+        int nfeatures = 1000;
         float scaleFactor = 1.2f;
         int nlevels = 8;
         int edgeThreshold = 31;
@@ -209,7 +212,7 @@ int pickBase(vector<String> listOfImages, vector<Pair> overlapping)
 }
  
 // This stitches images previously deemed 'good matches' together to create the panorama
-void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n)
+Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n, int toggle_2d)
 {
     Mat image1 = imread(listOfImages[base]); //image1 is the CURRENT BASE; "base" to start, and then the current pano for future iterations
     Mat image2;
@@ -217,7 +220,7 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
     alreadyDone.push_back(base);
     int lastAdded = base;
     resize(image1, image1, Size(), 0.25, 0.25, INTER_NEAREST);
-    image1 = fixLight(image1);
+    //image1 = fixLight(image1);
     copyMakeBorder(image1, image1, padding_top, padding_top, padding_side, padding_side, BORDER_CONSTANT, Scalar(0));
     Mat next_base = image1.clone();
     int out_of_options = 1;
@@ -296,7 +299,7 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
         {
             image2 = imread(listOfImages[nowAdd]);
             resize(image2, image2, Size(), 0.25, 0.25, INTER_NEAREST);
-            image2 = fixLight(image2);
+            //image2 = fixLight(image2);
             copyMakeBorder(image2, image2, padding_top, padding_top, padding_side, padding_side, BORDER_CONSTANT, Scalar(0));
  
             // Detect matches in the two images
@@ -344,13 +347,13 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
             // Use homography to warp image
             //warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
  
-            /*if (h.at<double>(2,1) < 0)
+            if (toggle_2d == 1)
             {
                 h = estimateAffine2D(pointsTrans, pointsBase);
                 warpAffine(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
             }
-            else*/
-                warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
+            else
+                warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0);
                 //cout << h << endl;
  
             Mat imgPan;
@@ -359,18 +362,24 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
             {
                 for (int c = 0; c < image1.cols; c++)
                 {
-                    if ((image1.at<Vec3b>(r, c)[0] == 0) & (image1.at<Vec3b>(r, c)[1] == 0) & (image1.at<Vec3b>(r, c)[2] == 0))
+                    if ((image1.at<Vec3b>(r, c)[0] < 30) & (image1.at<Vec3b>(r, c)[1] < 30) & (image1.at<Vec3b>(r, c)[2] < 30))
                     {
                         image1.at<Vec3b>(r, c)[0] = img2Transed.at<Vec3b>(r, c)[0];
                         image1.at<Vec3b>(r, c)[1] = img2Transed.at<Vec3b>(r, c)[1];
                         image1.at<Vec3b>(r, c)[2] = img2Transed.at<Vec3b>(r, c)[2];
                     }
-                    /*else
+                    else if ((img2Transed.at<Vec3b>(r, c)[0] == 0) & (img2Transed.at<Vec3b>(r, c)[1] == 0) & (img2Transed.at<Vec3b>(r, c)[2] == 0))
+                    {
+                        image1.at<Vec3b>(r, c)[0] = image1.at<Vec3b>(r, c)[0];
+                        image1.at<Vec3b>(r, c)[1] = image1.at<Vec3b>(r, c)[1];
+                        image1.at<Vec3b>(r, c)[2] = image1.at<Vec3b>(r, c)[2];
+                    }
+                    else
                     {
                         image1.at<Vec3b>(r, c)[0] = (image1.at<Vec3b>(r, c)[0] + img2Transed.at<Vec3b>(r, c)[0]) / 2;
                         image1.at<Vec3b>(r, c)[1] = (image1.at<Vec3b>(r, c)[1] + img2Transed.at<Vec3b>(r, c)[1]) / 2;
                         image1.at<Vec3b>(r, c)[2] = (image1.at<Vec3b>(r, c)[2] + img2Transed.at<Vec3b>(r, c)[2]) / 2;
-                    }*/
+                    }
                 }
             }
             hisIdx[nowAdd] = 1;
@@ -385,7 +394,10 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
         cout << "Loaded new image" << endl;
         waitKey();*/
     }
- 
+    /*Mat light;
+    light = fixLightingFinal(image1);
+    namedWindow("Lighting Corrected", WINDOW_KEEPRATIO);
+    imshow("Lighting Corrected", light);*/
     namedWindow("Panorama", WINDOW_KEEPRATIO);
     imshow("Panorama", image1);
     waitKey();
@@ -394,14 +406,30 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
     listOfImages.clear();
     overlapping.clear();
     alreadyDone.clear();
+ 
+    return image1;
+}
+ 
+Mat fixLightingFinal(Mat image)
+{
+    Mat lab, imageret;
+    cvtColor(image, lab, COLOR_BGR2Lab);
+    vector<Mat> channels;
+    split(lab, channels);
+    Ptr<CLAHE> clahe = createCLAHE();
+    clahe->setClipLimit(4);
+ 
+    Mat dst;
+    clahe->apply(channels[0], dst);
+    merge(channels, lab);
+    cvtColor(lab, imageret, COLOR_Lab2BGR);
+    return imageret;
 }
  
 Mat fixLight(Mat image)
 {
     Mat ycrcb;
- 
     cvtColor(image, ycrcb, COLOR_BGR2YCrCb);
- 
     vector<Mat> channels;
     split(ycrcb, channels);
  
@@ -409,7 +437,6 @@ Mat fixLight(Mat image)
  
     Mat result;
     merge(channels, ycrcb);
- 
     cvtColor(ycrcb, result, COLOR_YCrCb2BGR);
     return result;
 }
