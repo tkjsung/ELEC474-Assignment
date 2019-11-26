@@ -32,7 +32,7 @@ vector<string>listOfWLHImages = getImages("WLH/*.jpg"); // I may want to manuall
 //vector<Mat> matChurch = loadImages(listOfChurchImages); // loading matrices.
 //vector<Mat> matOffice = loadImages(listOfOfficeImages); // loading matrices.
 //vector<Mat> matwlh = loadImages(listOfWLHImages); // loading matrices
-
+Mat pano;
 
 int main()
 {
@@ -88,12 +88,13 @@ void imgORBMatch(String identify)
     int patchSize = 31;
     
     // All other variable declarations
-    Mat img1, img2, descriptors1, descriptors2, h, matchesMatrix, resultImg, pano;
+    Mat img1, img2, descriptors1, descriptors2, h, matchesMatrix, resultImg;
     vector<KeyPoint> keypoints1, keypoints2;
     vector<Point2f> img1Points, img2Points;
     vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
     Ptr<FeatureDetector> detector;
     Ptr<DescriptorMatcher> matcher;
+    int first = 0;;
     int j = 1; // for loop counter
     vector<Mat> transformedImg;
     
@@ -103,14 +104,24 @@ void imgORBMatch(String identify)
     cout << "Total images to match: " << matSource.size() << endl;
     
 //    for (j = 0; j < matSource.size(); j++)
-    for (j = 0; j < 1; j++)
+    for (j = 0; j < 3; j++)
     {
 
 //        if (matSource.size() < j + 2) break;
-        img1 = matSource[j];
-        img2 = matSource[j+1];
-
-        cout << "Feature detection for images " << j << " and " << j+1 << " (Image Index #)." << endl;
+        if(first == 0){
+            img1 = matSource[j];
+            img2 = matSource[j+1];
+            cout << "Feature detection for images " << j << " and " << j+1 << " (Image Index #)." << endl;
+            j++;
+            first = 1;
+        }
+        else
+        {
+            img1 = pano;
+            img2 = matSource[j];
+            cout << "Feature detection for panorama image and image " << j << " (Image Index #)." << endl;
+        }
+        
         
         // Feature Detector
         detector = ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, ORB::HARRIS_SCORE, patchSize);
@@ -162,7 +173,7 @@ void imgORBMatch(String identify)
         h = findHomography(img2Points, img1Points, RANSAC); // Outputs 64F... double matrix type
 
         // Trying to do warpPerspective manipulation but didn't really work so it's getting commented out
-        /*
+        
         vector<Point> pt_orig, pt_transform;
         for (int i = 0; i < 4; i++)
         {
@@ -177,10 +188,10 @@ void imgORBMatch(String identify)
         pt_orig[0].y = 0;
         pt_orig[1].x = img2.cols; // This is upper right
         pt_orig[1].y = 0;
-        pt_orig[2].x = 0; // This is lower left
+        pt_orig[2].x = img2.cols; // This is lower right
         pt_orig[2].y = img2.rows;
-        pt_orig[3].x = img2.rows; // This is lower right
-        pt_orig[3].y = img2.cols;
+        pt_orig[3].x = 0; // This is lower left
+        pt_orig[3].y = img2.rows;
         
         for (int i = 0; i < 4; i++)
         {
@@ -197,12 +208,17 @@ void imgORBMatch(String identify)
 //            cout << "a: " << a << " b: " << b << " c: " << c << endl;
             pt_transform[i].y = a + b + c;
             
-            cout << "Transformed point " << i << ": " << pt_transform[i] << endl;
+            cout << "Transformed point " << i+1 << ": " << pt_transform[i] << endl;
         }
-        */
         
-        
-        
+        int cropwidth;
+        if(pt_transform[1].x > pt_transform[2].x)
+        {
+            cropwidth = pt_transform[2].x;
+        }
+        else{
+            cropwidth = pt_transform[1].x;
+        }
         
         
         // Draw Matches algorithm
@@ -210,16 +226,42 @@ void imgORBMatch(String identify)
         imshow("Matches",matchesMatrix);
         waitKey();
         
-        // Warp image according to the homography
-        warpPerspective(img2, pano, h, img1.size());//Size((img1.rows + img2.rows),(img1.cols + img2.cols)));
+        // Panorama length needed...
+        int height_img1 = img1.rows;
+        int width_img1 = img1.cols;
+        int width_img2 = img2.cols;
+        int height_panorama = height_img1;
+        int width_panorama = width_img1 + width_img2;
         
-        imshow("Perspective change",pano);
+        
+        // Warp image according to the homography
+        warpPerspective(img2, resultImg, h, Size(width_panorama, height_panorama), 1);
+        
+        imshow("Perspective change",resultImg);
 //        imwrite("test.jpg", pano);
         waitKey();
-        transformedImg.push_back(pano);
-        
+        transformedImg.push_back(resultImg);
         cout << "Image transformed and placed in matrix for images " <<  j << " and " << j+1 << "."  << endl;
+        img1.copyTo(resultImg);
         
+        pano = Mat(height_panorama, cropwidth, CV_8UC3);
+        
+        for (int r = 0; r < height_panorama; r++)
+        {
+            for (int c = 0; c < cropwidth; c++)
+            {
+                pano.at<Vec3b>(r,c)[0] = resultImg.at<Vec3b>(r,c)[0];
+                pano.at<Vec3b>(r,c)[1] = resultImg.at<Vec3b>(r,c)[1];
+                pano.at<Vec3b>(r,c)[2] = resultImg.at<Vec3b>(r,c)[2];
+            }
+        }
+        
+//        pano = resultImg(height_panorama, cropwidth, CV_8UC3);
+        
+        imshow("Panorama", pano);
+        waitKey();
+        
+
         // Clear all variables
         keypoints1.clear();
         keypoints2.clear();
@@ -230,7 +272,7 @@ void imgORBMatch(String identify)
         h.release();
         matchesMatrix.release();
         resultImg.release();
-        pano.release();
+//        pano.release();
         matches12.clear();
         matches21.clear();
         filteredMatches12.clear();
@@ -306,7 +348,7 @@ void stitching(vector<Mat> inputImg)
     
 }
 
-
+/*
 Mat mask(Mat img1, Mat img2, String version, int smoothing_window_size)
 {
     int height_img1 = img1.rows;
@@ -322,15 +364,15 @@ Mat mask(Mat img1, Mat img2, String version, int smoothing_window_size)
     {
         for(int r = 0; r < mask.rows; r++)
         {
-            for (int c = 0; c < mask.cols; c++)
+            for (int c = (barrier-offset); c < (barrier+offset); c++)
             {
-                mask.at<unsigned char>(r,c)
+                mask.at<unsigned char>(r,c) =
             }
         }
     }
+    int spaces = (2*offset)-1;
     
-    
-    /*
+
      height_img1 = img1.shape[0]
      width_img1 = img1.shape[1]
      width_img2 = img2.shape[1]
@@ -346,9 +388,9 @@ Mat mask(Mat img1, Mat img2, String version, int smoothing_window_size)
          mask[:, barrier - offset :barrier + offset ] = np.tile(np.linspace(0, 1, 2 * offset ).T, (height_panorama, 1))
          mask[:, barrier + offset:] = 1
      return cv2.merge([mask, mask, mask])
-     */
+     
     
     
     return;
 }
-
+*/
