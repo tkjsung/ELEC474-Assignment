@@ -47,7 +47,7 @@ int main()
     //TODO:: Make sure stitching tool works
     //TODO:: Keep track of image indices so when one image is placed on another image we know where it goes
     
-    imgORBMatch("office"); // Choices: wlh, church, or office
+    imgORBMatch("church"); // Choices: wlh, church, or office
 //    imgSIFTMatch("church"); // Choices: wkh, church, or office
 //    stitching(matOffice);
     
@@ -102,10 +102,11 @@ void imgORBMatch(String identify)
     
     cout << "Total images to match: " << matSource.size() << endl;
     
-    for (j = 0; j < matSource.size(); j++)
+//    for (j = 0; j < matSource.size(); j++)
+    for (j = 0; j < 1; j++)
     {
 
-        if (matSource.size() < j + 2) break;
+//        if (matSource.size() < j + 2) break;
         img1 = matSource[j];
         img2 = matSource[j+1];
 
@@ -176,18 +177,67 @@ void imgORBMatch(String identify)
         }
         
         // Find homography (source pts, dst pts, algorithm)
-        h = findHomography(img2Points, img1Points, RANSAC);
+        h = findHomography(img2Points, img1Points, RANSAC); // Outputs 64F... double matrix type
+//        cout << h.at<float>(0,2) << endl;
+        vector<Point> pt_orig, pt_transform;
+        for (int i = 0; i < 4; i++)
+        {
+            Point temp;
+            temp.x = 0;
+            temp.y = 0;
+            pt_orig.push_back(temp);
+            pt_transform.push_back(temp);
+        }
+        
+        pt_orig[0].x = 0; // This is upper left
+        pt_orig[0].y = 0;
+        pt_orig[1].x = img2.cols; // This is upper right
+        pt_orig[1].y = 0;
+        pt_orig[2].x = 0; // This is lower left
+        pt_orig[2].y = img2.rows;
+        pt_orig[3].x = img2.rows; // This is lower right
+        pt_orig[3].y = img2.cols;
+        
+        for (int i = 0; i < 4; i++)
+        {
+            double a, b, c;
+            a = pt_orig[i].x * h.at<double>(0,0);
+            b = pt_orig[i].y * h.at<double>(0,1);
+            c = h.at<double>(0,2);
+//            cout << "a: " << a << " b: " << b << " c: " << c << endl;
+            pt_transform[i].x = a + b + c;
+            
+            a = pt_orig[i].x * h.at<double>(1,0);
+            b = pt_orig[i].y * h.at<double>(1,1);
+            c = h.at<double>(1,2);
+//            cout << "a: " << a << " b: " << b << " c: " << c << endl;
+            pt_transform[i].y = a + b + c;
+            
+            cout << "Transformed point " << i << ": " << pt_transform[i] << endl;
+        }
+        
+        
+//        Point pt_u1, pt_u2, pt_l1, pt_l2;
+//        pt_u1.x = 0;
+//        pt_u1.y = 0;
+//        pt_u2.x = 0;
+//        pt_u2.y = img2.cols;
+//        pt_l1.x = img2.rows;
+//        pt_l1.y = 0;
+//        pt_u2.x = img2.cols;
+//        pt_u2.y = img2.rows;
         
         // Draw Matches algorithm
         drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches12, matchesMatrix);
-//        imshow("Matches",matchesMatrix);
-//        waitKey();
+        imshow("Matches",matchesMatrix);
+        waitKey();
         
         // Warp image according to the homography
         warpPerspective(img2, pano, h, img1.size());//Size((img1.rows + img2.rows),(img1.cols + img2.cols)));
         
-//        imshow("Perspective change",pano);
-//        waitKey();
+        imshow("Perspective change",pano);
+//        imwrite("test.jpg", pano);
+        waitKey();
         transformedImg.push_back(pano);
         
         cout << "Image transformed and placed in matrix for images " <<  j << " and " << j+1 << "."  << endl;
