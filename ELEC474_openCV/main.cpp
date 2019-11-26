@@ -19,11 +19,6 @@ struct Pair
     int id1, id2;
 };
  
-struct filePair
-{
-    String file1, file2;
-};
- 
 // Function declarations
 vector<String> getImages(String path);
 vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches);
@@ -39,7 +34,7 @@ int main()
     listOfImages = getImages("office2/*.jpg");
     overlapped = pickOverlap(listOfImages, 10, 130, 40, 10);
     baseIdx = pickBase(listOfImages, overlapped);
-    panorama(listOfImages, overlapped, baseIdx, 1000, 10000, 2000);
+    panorama(listOfImages, overlapped, baseIdx, 500, 3000, 2000);
  
     //overlapped = pickOverlap_fast(listOfImages, 2, 130, 40, 3, 1400);
     //baseIdx = pickBase_fast(listOfImages, overlapped);
@@ -272,7 +267,7 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
         {
             if (ecount == 0)
             {
-                cout << "Found no image to stitch! Look for image to stitch to base, " << base << endl;
+                cout << "Found no image to stitch! Try with base, " << base << endl;
                 nowAdd = base;
                 ecount++;
             }
@@ -338,13 +333,19 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
  
             Mat img1Transed, h;
  
-            // Find homography
-            h = findHomography(pointsTrans, pointsBase, RANSAC);
-//            h = estimateAffine2D(pointsTrans, pointsBase);
-//            warpAffine(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
- 
-            // Use homography to warp image
-            warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
+            /*if (toggle_2d == 1)
+            {
+                h = estimateAffine2D(pointsTrans, pointsBase);
+                warpAffine(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
+            }
+            else
+            {*/
+                // Find homography
+                h = findHomography(pointsTrans, pointsBase, RANSAC);
+                // Use homography to warp image
+                warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
+            //}
+                cout << h << endl;
  
             Mat imgPan;
  
@@ -373,10 +374,10 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
         lastAdded = nowAdd;
         next_base = img2Transed.clone();
  
-        /*namedWindow("Stitching", WINDOW_KEEPRATIO);
+        namedWindow("Stitching", WINDOW_KEEPRATIO);
         imshow("Stitching", image1);
         cout << "Loaded new image" << endl;
-        waitKey();*/
+        waitKey();
     }
  
     namedWindow("Panorama", WINDOW_KEEPRATIO);
