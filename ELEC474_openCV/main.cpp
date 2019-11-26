@@ -24,6 +24,7 @@ vector<String> getImages(String path);
 vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches);
 int pickBase(vector<String> listOfImages, vector<Pair> overlapping);
 void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n);
+void test(String image);
  
 int main()
 {
@@ -32,9 +33,11 @@ int main()
     int baseIdx;
  
     listOfImages = getImages("office2/*.jpg");
-    overlapped = pickOverlap(listOfImages, 10, 130, 40, 10);
+    overlapped = pickOverlap(listOfImages, 3, 130, 40, 10);
     baseIdx = pickBase(listOfImages, overlapped);
     panorama(listOfImages, overlapped, baseIdx, 500, 3000, 2000);
+ 
+    //test("office2/a.jpg");
  
     //overlapped = pickOverlap_fast(listOfImages, 2, 130, 40, 3, 1400);
     //baseIdx = pickBase_fast(listOfImages, overlapped);
@@ -333,19 +336,19 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
  
             Mat img1Transed, h;
  
-            /*if (toggle_2d == 1)
+            // Find homography
+            h = findHomography(pointsTrans, pointsBase, RANSAC);
+            // Use homography to warp image
+            //warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
+ 
+            if (h.at<double>(2,1) < 0)
             {
                 h = estimateAffine2D(pointsTrans, pointsBase);
                 warpAffine(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
             }
             else
-            {*/
-                // Find homography
-                h = findHomography(pointsTrans, pointsBase, RANSAC);
-                // Use homography to warp image
                 warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
-            //}
-                cout << h << endl;
+                //cout << h << endl;
  
             Mat imgPan;
  
@@ -374,10 +377,10 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
         lastAdded = nowAdd;
         next_base = img2Transed.clone();
  
-        namedWindow("Stitching", WINDOW_KEEPRATIO);
+        /*namedWindow("Stitching", WINDOW_KEEPRATIO);
         imshow("Stitching", image1);
         cout << "Loaded new image" << endl;
-        waitKey();
+        waitKey();*/
     }
  
     namedWindow("Panorama", WINDOW_KEEPRATIO);
@@ -388,4 +391,16 @@ void panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, i
     listOfImages.clear();
     overlapping.clear();
     alreadyDone.clear();
+}
+ 
+void test(String image)
+{
+    Mat image1 = imread(image);
+    resize(image1, image1, Size(), 0.25, 0.25, INTER_NEAREST);
+    Mat gray;
+    cvtColor(image1, gray, COLOR_BGR2GRAY);
+    Mat corners = gray.clone();
+    cornerHarris(gray, corners, 5, 5, 0.05, BORDER_DEFAULT);
+    imshow("Corners", corners);
+    waitKey();
 }
