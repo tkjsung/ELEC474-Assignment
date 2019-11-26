@@ -22,7 +22,6 @@ using namespace std;
 vector<String> getImages(String path);
 vector<Mat> loadImages(vector<String> list);
 void imgORBMatch(String identify);
-void imgSIFTMatch(String identify);
 void stitching(vector<Mat> inputImg);
 
 // Global Variables
@@ -47,14 +46,13 @@ int main()
     //TODO:: Make sure stitching tool works
     //TODO:: Keep track of image indices so when one image is placed on another image we know where it goes
     
-    imgORBMatch("church"); // Choices: wlh, church, or office
-//    imgSIFTMatch("church"); // Choices: wkh, church, or office
+    imgORBMatch("office"); // Choices: wlh, church, or office
 //    stitching(matOffice);
     
     return 0;
 }
 
-// Reference: https://towardsdatascience.com/image-stitching-using-opencv-817779c86a83
+// Reference: https://github.com/linrl3/Image-Stitching-OpenCV/blob/master/Image_Stitching.py
 void imgORBMatch(String identify)
 {
     vector<Mat> matSource;
@@ -80,13 +78,7 @@ void imgORBMatch(String identify)
         return;
     }
     
-    // All variable declarations
-    Mat img1, img2, descriptors1, descriptors2, h, matchesMatrix, resultImg, pano;
-    vector<KeyPoint> keypoints1, keypoints2;
-    vector<Point2f> img1Points, img2Points;
-    vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
-    Ptr<FeatureDetector> detector;
-    Ptr<DescriptorMatcher> matcher;
+    // Variables for Feature Detector
     int nfeatures = 5000;
     float scaleFactor = 1.2f;
     int nlevels = 8;
@@ -94,11 +86,19 @@ void imgORBMatch(String identify)
     int firstLevel = 0;
     int WTA_K = 2;
     int patchSize = 31;
+    
+    // All other variable declarations
+    Mat img1, img2, descriptors1, descriptors2, h, matchesMatrix, resultImg, pano;
+    vector<KeyPoint> keypoints1, keypoints2;
+    vector<Point2f> img1Points, img2Points;
+    vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
+    Ptr<FeatureDetector> detector;
+    Ptr<DescriptorMatcher> matcher;
     int j = 1; // for loop counter
     vector<Mat> transformedImg;
     
 //    cout << matSource.size() << endl;
-    transformedImg.push_back(matSource[0]);
+    transformedImg.push_back(matSource[0]); // Put one image in the vector<Mat>, acts as base image
     
     cout << "Total images to match: " << matSource.size() << endl;
     
@@ -150,25 +150,7 @@ void imgORBMatch(String identify)
 //        // Remove not good matches
 //        const int numGoodMatches = matches12.size() * 0.15f;
 //        matches12.erase(matches12.begin() + numGoodMatches, matches12.end());
-//
-        
-        // From : https://answers.opencv.org/question/15/how-to-get-good-matches-from-the-orb-feature-detection-algorithm/
-//        for (size_t i = 0; i < matches12.size(); i++)
-//        {
-//            DMatch forward = matches12[i];
-//            DMatch backward = matches21[forward.trainIdx];
-//            if(backward.trainIdx == forward.queryIdx)
-//                filteredMatches12.push_back(forward);
-//        }
-    
-    // This for statement might not be needed...
-//        for (size_t i = 0; i < matches21.size(); i++)
-//        {
-//            DMatch forward = matches21[i];
-//            DMatch backward = matches21[forward.trainIdx];
-//            if(backward.trainIdx == forward.queryIdx)
-//                filteredMatches21.push_back(forward);
-//        }
+
     
         for (size_t i = 0; i < filteredMatches12.size(); i++)
         {
@@ -178,7 +160,9 @@ void imgORBMatch(String identify)
         
         // Find homography (source pts, dst pts, algorithm)
         h = findHomography(img2Points, img1Points, RANSAC); // Outputs 64F... double matrix type
-//        cout << h.at<float>(0,2) << endl;
+
+        // Trying to do warpPerspective manipulation but didn't really work so it's getting commented out
+        /*
         vector<Point> pt_orig, pt_transform;
         for (int i = 0; i < 4; i++)
         {
@@ -215,17 +199,11 @@ void imgORBMatch(String identify)
             
             cout << "Transformed point " << i << ": " << pt_transform[i] << endl;
         }
+        */
         
         
-//        Point pt_u1, pt_u2, pt_l1, pt_l2;
-//        pt_u1.x = 0;
-//        pt_u1.y = 0;
-//        pt_u2.x = 0;
-//        pt_u2.y = img2.cols;
-//        pt_l1.x = img2.rows;
-//        pt_l1.y = 0;
-//        pt_u2.x = img2.cols;
-//        pt_u2.y = img2.rows;
+        
+        
         
         // Draw Matches algorithm
         drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches12, matchesMatrix);
@@ -327,109 +305,3 @@ void stitching(vector<Mat> inputImg)
     waitKey();
     
 }
-
-
-// SIFT Matching. Ignore this.
-/*
-void imgSIFTMatch(String identify)
-{
-    vector<Mat> matSource;
-    
-    // Load the necessary matrices into the code
-    if(identify == "church")
-    {
-        matSource = loadImages(listOfChurchImages);
-        cout << "Church selected." << endl;
-    }
-    else if(identify == "office")
-    {
-        matSource = loadImages(listOfOfficeImages);
-        cout << "Office selected." << endl;
-    }
-    else if(identify == "wlh"){
-        matSource = loadImages(listOfWLHImages);
-        cout << "WLH selected." << endl;
-    }
-    else
-    {
-        cout << "Error occurred" << endl;
-        return;
-    }
-    Mat img1 = matSource[2];
-    Mat img2 = matSource[3];
-    
-    vector<KeyPoint> keypoints1, keypoints2;
-    Mat descriptors1, descriptors2;
-    vector<Point2f> img1Points, img2Points;
-    
-    int nfeatures = 500;
-    int nOctaveLayers = 3;
-    double contrastThreshold = 0.04;
-    double edgeThreshold = 0.04;
-    double sigma = 1.6;
-    
-    Ptr<Feature2D> f2d = xfeatures2d::SIFT::create(nfeatures, nOctaveLayers,contrastThreshold, edgeThreshold, sigma); // Use all default values for SIFT feature detection
-    f2d->detect(img1,keypoints1);
-    f2d->detect(img2,keypoints2);
-    f2d->compute(img1,keypoints1,descriptors1);
-    f2d->compute(img2,keypoints2,descriptors2);
-    
-    cout << keypoints1.size() << endl;
-    cout << descriptors1.size() << endl;
-    
-    vector<DMatch> matches12, matches21, filteredMatches12;
-    BFMatcher matcher;
-    matcher.match(descriptors1, descriptors2, matches12);
-    matcher.match(descriptors2, descriptors1, matches21);
-    
-    
-    // Filtering matches...
-    for (size_t i = 0; i < matches12.size(); i++)
-    {
-        DMatch forward = matches12[i];
-        DMatch backward = matches21[forward.trainIdx];
-        if(backward.trainIdx == forward.queryIdx)
-        {
-            filteredMatches12.push_back(forward);
-        }
-    }
- 
-    // Lowe's Test... can only be used in SIFT.
-    const float ratio_thresh = 0.7f;
-    //vector<DMatch> good_matches;
-    for (size_t i = 0; i < matches12.size(); i++)
-    {
-        if (matches12[i].distance < ratio_thresh * matches21[i].distance)
-        {
-            filteredMatches12.push_back(matches12[i]);
-        }
-    }
-    
-    
-    // Getting points for homography (can't use old keypoints... need filtering)
-    // Reference: https://stackoverflow.com/questions/5937264/using-opencv-descriptor-matches-with-findfundamentalmat
-    for (size_t i = 0; i < filteredMatches12.size(); i++)
-    {
-        img1Points.push_back(keypoints1[filteredMatches12[i].queryIdx].pt);
-        img2Points.push_back(keypoints2[filteredMatches12[i].trainIdx].pt);
-    }
-    
-    // Homography: Want second image to be place on first image, not the other way around (src, dst, method)
-    Mat h = findHomography(img2Points, img1Points, RANSAC);
-    
-    // Draw Matches algorithm
-    Mat matchesMatrix;
-    drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches12, matchesMatrix);
-    imshow("Matches",matchesMatrix);
-    waitKey();
-    
-    // Warp image according to the homography
-    warpPerspective(img2, matchesMatrix, h, img1.size());
-    imshow("Perspective change",matchesMatrix);
-    waitKey();
-    
-}
-*/
-
-
-// Reference: https://pastebin.com/k4JfdTWx
