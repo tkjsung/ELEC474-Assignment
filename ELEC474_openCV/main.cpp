@@ -22,7 +22,7 @@ using namespace std;
 vector<String> getImages(String path);
 vector<Mat> loadImages(vector<String> list);
 vector<Mat> loadMat(String identify);
-void imgORBMatch(vector<Mat> matSource, vector<Mat> matResult);
+void imgORBMatch(vector<Mat> & matSource);
 void stitching(vector<Mat> inputImg);
 
 
@@ -42,10 +42,30 @@ vector<string>listOfWLHImages = getImages("WLH/*.jpg"); // I may want to manuall
 int main()
 {
     vector<Mat> matSource;
-    vector<Mat> matSource2; //TODO:: Start from here... add in the second matrix.
+    //vector<Mat> matSource2; //TODO:: Start from here... add in the second matrix.
     matSource = loadMat("office");
-    imgORBMatch(matSource, matSource2); // Choices: wlh, church, or office
+    cout << "First time" << endl;
+    imgORBMatch(matSource);
+    cout << "\n\n" << endl;
+    
+    
 //    stitching(matOffice);
+//    matSource.clear();
+//    for (int i = 0; i< matSource2.size(); i++)
+//    {
+//        matSource.push_back(matSource2[i]);
+//    }
+//    matSource2.clear();
+    
+    
+    cout << "Second time" << endl;
+    imgORBMatch(matSource);
+    
+    for (int i = 0; i < matSource.size(); i++)
+    {
+        imshow("Panorama", matSource[i]);
+        waitKey();
+    }
     
     return 0;
 }
@@ -65,7 +85,8 @@ vector<Mat> loadMat(String identify)
         matSource = loadImages(listOfOfficeImages);
         cout << "Office selected." << endl;
     }
-    else if(identify == "wlh"){
+    else if(identify == "wlh")
+    {
         matSource = loadImages(listOfWLHImages);
         cout << "WLH selected." << endl;
     }
@@ -78,7 +99,7 @@ vector<Mat> loadMat(String identify)
     return matSource;
 }
 
-void imgORBMatch(vector<Mat> matSource, vector<Mat> matResult)
+void imgORBMatch(vector<Mat> & matSource)
 {
     // Variables for Feature Detector
     int nfeatures = 5000;
@@ -96,41 +117,43 @@ void imgORBMatch(vector<Mat> matSource, vector<Mat> matResult)
     vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
     Ptr<FeatureDetector> detector;
     Ptr<DescriptorMatcher> matcher;
-//    int first = 0;
+    //    int first = 0;
     int j = 1; // for loop counter
     vector<Mat> transformedImg, panoImg;
     
-//    cout << matSource.size() << endl;
-//    transformedImg.push_back(matSource[0]); // Put one image in the vector<Mat>, acts as base image
+    //    cout << matSource.size() << endl;
+    //    transformedImg.push_back(matSource[0]); // Put one image in the vector<Mat>, acts as base image
     
     cout << "Total images to match: " << matSource.size() << endl;
     
     for (j = 0; j < matSource.size(); j = j + 2)
-//    for (j = 0; j < 3; j++)
+        //    for (j = 0; j < 3; j++)
     {
-
-//        if (matSource.size() < j + 2) break;
-//        if(first == 0){
-            img1 = matSource[j];
-            img2 = matSource[j+1];
-            cout << "Feature detection for images " << j << " and " << j+1 << " (Image Index #)." << endl;
-            j++;
-            //first = 1;
-//        }
+        
+        //        if (matSource.size() < j + 2) break;
+        //        if(first == 0){
         if(matSource.size() < j + 2)
         {
             panoImg.push_back(matSource[j]);
-            return;
+            cout << "Feature detection for image " <<  j << " (Image Index #)." << endl;
+            break;
         }
-        /*
-        else
-        {
-            img1 = pano;
-            img2 = matSource[j];
-            cout << "Feature detection for panorama image and image " << j << " (Image Index #)." << endl;
-        }
-        */
+        img1 = matSource[j];
+        img2 = matSource[j+1];
+        cout << "Feature detection for images " << j << " and " << j+1 << " (Image Index #)." << endl;
+//        j++;
+        //first = 1;
+        //        }
 
+        /*
+         else
+         {
+         img1 = pano;
+         img2 = matSource[j];
+         cout << "Feature detection for panorama image and image " << j << " (Image Index #)." << endl;
+         }
+         */
+        
         // Feature Detector
         detector = ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, ORB::HARRIS_SCORE, patchSize);
         detector->detectAndCompute(img1, Mat(), keypoints1, descriptors1);
@@ -165,12 +188,12 @@ void imgORBMatch(vector<Mat> matSource, vector<Mat> matResult)
         
         
         // same thing as above...?
-//        sort(matches12.begin(), matches12.end());
-//        // Remove not good matches
-//        const int numGoodMatches = matches12.size() * 0.15f;
-//        matches12.erase(matches12.begin() + numGoodMatches, matches12.end());
-
-    
+        //        sort(matches12.begin(), matches12.end());
+        //        // Remove not good matches
+        //        const int numGoodMatches = matches12.size() * 0.15f;
+        //        matches12.erase(matches12.begin() + numGoodMatches, matches12.end());
+        
+        
         for (size_t i = 0; i < filteredMatches12.size(); i++)
         {
             img1Points.push_back(keypoints1[filteredMatches12[i].queryIdx].pt);
@@ -179,7 +202,7 @@ void imgORBMatch(vector<Mat> matSource, vector<Mat> matResult)
         
         // Find homography (source pts, dst pts, algorithm)
         h = findHomography(img2Points, img1Points, RANSAC); // Outputs 64F... double matrix type
-
+        
         // Trying to do warpPerspective manipulation but didn't really work so it's getting commented out
         
         vector<Point> pt_orig, pt_transform;
@@ -207,13 +230,13 @@ void imgORBMatch(vector<Mat> matSource, vector<Mat> matResult)
             a = pt_orig[i].x * h.at<double>(0,0);
             b = pt_orig[i].y * h.at<double>(0,1);
             c = h.at<double>(0,2);
-//            cout << "a: " << a << " b: " << b << " c: " << c << endl;
+            //            cout << "a: " << a << " b: " << b << " c: " << c << endl;
             pt_transform[i].x = a + b + c;
             
             a = pt_orig[i].x * h.at<double>(1,0);
             b = pt_orig[i].y * h.at<double>(1,1);
             c = h.at<double>(1,2);
-//            cout << "a: " << a << " b: " << b << " c: " << c << endl;
+            //            cout << "a: " << a << " b: " << b << " c: " << c << endl;
             pt_transform[i].y = a + b + c;
             
             a = pt_orig[i].x * h.at<double>(2,0);
@@ -254,11 +277,11 @@ void imgORBMatch(vector<Mat> matSource, vector<Mat> matResult)
         warpPerspective(img2, resultImg, h, Size(width_panorama, height_panorama), 1);
         
         imshow("Perspective change",resultImg);
-//        imwrite("test.jpg", pano);
         waitKey();
+        //        imwrite("test.jpg", pano);
         transformedImg.push_back(resultImg);
         cout << "Image transformed and placed in matrix for images " <<  j << " and " << j+1 << "."  << endl;
-//        resultImg.copyTo(img1);
+        //        resultImg.copyTo(img1);
         for (int r = 0; r < img1.rows; r++)
         {
             for (int c = 0; c < img1.cols; c++)
@@ -284,13 +307,13 @@ void imgORBMatch(vector<Mat> matSource, vector<Mat> matResult)
             }
         }
         
-//        pano = resultImg(height_panorama, cropwidth, CV_8UC3);
+        //        pano = resultImg(height_panorama, cropwidth, CV_8UC3);
         
         imshow("Panorama", pano);
         waitKey();
         panoImg.push_back(pano);
         
-
+        
         // Clear all variables
         keypoints1.clear();
         keypoints2.clear();
@@ -301,30 +324,36 @@ void imgORBMatch(vector<Mat> matSource, vector<Mat> matResult)
         h.release();
         matchesMatrix.release();
         resultImg.release();
-//        pano.release();
+        //        pano.release();
         matches12.clear();
         matches21.clear();
         filteredMatches12.clear();
         filteredMatches21.clear();
-//        half.release();
+        //        half.release();
         detector->clear();
         matcher->clear();
         
         
     } // end for loop
-//    cout << "Feature detection complete. Now STITCHING." << endl;
-//    cout << "Stitching code not developed yet. Exit program." << endl;
+    //    cout << "Feature detection complete. Now STITCHING." << endl;
+    //    cout << "Stitching code not developed yet. Exit program." << endl;
     
     
-//    stitching(transformedImg);
+    //    stitching(transformedImg);
     
-//    for (int i = 0; i < transformedImg.size(); i++)
-//    {
-//        imshow("Transformed Images", transformedImg[i]);
-//        waitKey(2000);
-//        cout << "Image #: " << i+1 << endl;
-//    }
-    
+    //    for (int i = 0; i < transformedImg.size(); i++)
+    //    {
+    //        imshow("Transformed Images", transformedImg[i]);
+    //        waitKey(2000);
+    //        cout << "Image #: " << i+1 << endl;
+    //    }
+    matSource.clear();
+    for (int i = 0; i < panoImg.size(); i++)
+    {
+        matSource.push_back(panoImg[i]);
+    }
+    cout << "matSource #: " <<  matSource.size() << endl;
+    cout << "panoImg #: " << panoImg.size() << endl;
 }
 
 
