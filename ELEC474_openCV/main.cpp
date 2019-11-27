@@ -17,13 +17,14 @@ using namespace std;
 struct Pair
 {
     int id1, id2;
+    vector<Point2f> keyl1, keyl2;
 };
  
 // Function declarations
 vector<String> getImages(String path);
-vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches);
+vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches, int n);
 int pickBase(vector<String> listOfImages, vector<Pair> overlapping);
-Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n, int toggle_2d);
+Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int toggle_2d, int tom);
 Mat fixLight(Mat image);
 Mat fixLightingFinal(Mat image);
 void test(String image);
@@ -35,11 +36,13 @@ int main()
     int baseIdx;
     Mat pano;
  
-    listOfImages = getImages("WLH/*.jpg");
-    overlapped = pickOverlap(listOfImages, 12, 110, 85, 10);
+    int tom = 0;
+ 
+    listOfImages = getImages("StJames/*.jpg");
+    overlapped = pickOverlap(listOfImages, 10, 100, 190, 10, 2000);
     baseIdx = pickBase(listOfImages, overlapped);
-    pano = panorama(listOfImages, overlapped, baseIdx, 1000, 2500, 2000, 0);
-    imwrite("WLH_Pano_Steven.jpg", pano);
+    pano = panorama(listOfImages, overlapped, baseIdx, 600, 1300, 0, tom);
+    imwrite("StJames_Pano_0.jpg", pano);
  
     //test("office2/a.jpg");
  
@@ -61,7 +64,7 @@ vector<String> getImages(String path)
 }
  
 // This function selects the images that overlap & returns a vector of pairs that contain the overlapping indices
-vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches)
+vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh, int inlierThresh, int maxMatches, int n)
 {
     int numRand = (listOfImages.size()) * multiplier;
     RNG rng((uint64)-1);
@@ -115,7 +118,7 @@ vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh
         vector<KeyPoint> keypoints1, keypoints2;
         Mat descriptors1, descriptors2;
  
-        int nfeatures = 1000;
+        int nfeatures = n;
         float scaleFactor = 1.2f;
         int nlevels = 8;
         int edgeThreshold = 31;
@@ -176,6 +179,8 @@ vector<Pair> pickOverlap(vector<String> listOfImages, int multiplier, int thresh
             Pair current;
             current.id1 = idx1;
             current.id2 = idx2;
+            current.keyl1 = kp1List;
+            current.keyl2 = kp2List;
             goodPairs.push_back(current);
             matchedList.at(idx1) = matchedList[idx1] + 1;
             matchedList.at(idx2) = matchedList[idx2] + 1;
@@ -212,7 +217,7 @@ int pickBase(vector<String> listOfImages, vector<Pair> overlapping)
 }
  
 // This stitches images previously deemed 'good matches' together to create the panorama
-Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int n, int toggle_2d)
+Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, int padding_top, int padding_side, int toggle_2d, int tom)
 {
     Mat image1 = imread(listOfImages[base]); //image1 is the CURRENT BASE; "base" to start, and then the current pano for future iterations
     Mat image2;
@@ -228,6 +233,14 @@ Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, in
     int keepGoing = 0;
     //int hisIdx[20];
     array<int, 30> hisIdx;
+ 
+    Mat h1(3, 3, CV_64FC3);
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+            h1.at<double>(i, j) = 1.0;
+    }
+       
     vector<Mat> history;
     for (int j = 0; j < listOfImages.size(); j++)
     {
@@ -239,12 +252,13 @@ Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, in
     int ecount = 0;
  
     hisIdx[base] = 1;
-    history.at(base) = image1;
+    history.at(base) = h1;
  
     //for (int q = 0; q < listOfImages.size(); q++)
     while (q < (listOfImages.size() - 1))
     //for (int q = 0; q < 3; q++)
     {
+        vector<Point2f> pointsBase, pointsTrans;
         Mat img2Transed;
         keepGoing = 0;
         cout << "Looking for image to stitch to " << lastAdded << endl;
@@ -256,6 +270,11 @@ Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, in
                 keepGoing = 1;
                 cout << "Found image to stitch: " << nowAdd << endl;
                 //alreadyDone.push_back(nowAdd);
+                for (int i = 0; i < overlapping[r].keyl1.size(); i++)
+                {
+                    pointsBase.push_back(overlapping[r].keyl1[i]);
+                    pointsTrans.push_back(overlapping[r].keyl2[i]);
+                }
                 overlapping.erase(overlapping.begin() + r);
                 ecount = 0;
                 break;
@@ -265,6 +284,11 @@ Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, in
                 nowAdd = overlapping[r].id1;
                 keepGoing = 1;
                 cout << "Found image to stitch: " << nowAdd << endl;
+                for (int i = 0; i < overlapping[r].keyl1.size(); i++)
+                {
+                    pointsBase.push_back(overlapping[r].keyl2[i]);
+                    pointsTrans.push_back(overlapping[r].keyl1[i]);
+                }
                 //alreadyDone.push_back(nowAdd);
                 overlapping.erase(overlapping.begin() + r);
                 ecount = 0;
@@ -300,50 +324,28 @@ Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, in
             image2 = imread(listOfImages[nowAdd]);
             resize(image2, image2, Size(), 0.25, 0.25, INTER_NEAREST);
             //image2 = fixLight(image2);
+            //JUMP
             copyMakeBorder(image2, image2, padding_top, padding_top, padding_side, padding_side, BORDER_CONSTANT, Scalar(0));
  
-            // Detect matches in the two images
-            vector<KeyPoint> keypoints1, keypoints2;
-            Mat descriptors1, descriptors2;
- 
-            int nfeatures = n;
-            float scaleFactor = 1.2f;
-            int nlevels = 8;
-            int edgeThreshold = 31;
-            int firstLevel = 0;
-            int WTA_K = 2;
-            int patchSize = 31;
- 
-            // Feature detector
-            Ptr<FeatureDetector> detector = ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, ORB::HARRIS_SCORE, patchSize);
-            detector->detectAndCompute(next_base, Mat(), keypoints1, descriptors1);
-            detector->detectAndCompute(image2, Mat(), keypoints2, descriptors2);
- 
-            // Match features
-            vector<DMatch> matches;
-            Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce-Hamming");
-            matcher->match(descriptors1, descriptors2, matches, Mat());
- 
-            // Sort matches by score
-            sort(matches.begin(), matches.end());
- 
-            // Remove not good matches
-            const int numGoodMatches = matches.size() * 0.15f;
-            matches.erase(matches.begin() + numGoodMatches, matches.end());
- 
-            vector<Point2f> pointsBase, pointsTrans;
- 
-            for (size_t i = 0; i < matches.size(); i++)
+            for (int i = 0; i < pointsBase.size(); i++)
             {
-                pointsBase.push_back(keypoints1[matches[i].queryIdx].pt);
-                pointsTrans.push_back(keypoints2[matches[i].trainIdx].pt);
+                pointsBase[i].x += padding_side;
+                pointsBase[i].y += padding_top;
+                pointsTrans[i].x += padding_side;
+                pointsTrans[i].y += padding_top;
+                //cout << "Base point after add: (" << pointsBase[i].x << ", " << pointsBase[i].y << ")" << endl;
+                //cout << "Trans point after add: (" << pointsTrans[i].x << ", " << pointsTrans[i].y << ")" << endl;
             }
  
+            if(lastAdded != base)
+                perspectiveTransform(pointsBase, pointsBase, history.at(lastAdded));
  
             Mat img1Transed, h;
  
             // Find homography
             h = findHomography(pointsTrans, pointsBase, RANSAC);
+            //cout << "finding homography complete" << endl;
+            //cout << h << endl;
             // Use homography to warp image
             //warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
  
@@ -353,7 +355,8 @@ Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, in
                 warpAffine(image2, img2Transed, h, img2Transed.size(), 1, 0, 0.1);
             }
             else
-                warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0);
+                //warpPerspective(image2, img2Transed, h, img2Transed.size(), 1, 0, 0);
+                warpPerspective(image2, img2Transed, h, image2.size(), 1, 0, 0);
                 //cout << h << endl;
  
             Mat imgPan;
@@ -362,37 +365,50 @@ Mat panorama(vector<String> listOfImages, vector<Pair> overlapping, int base, in
             {
                 for (int c = 0; c < image1.cols; c++)
                 {
-                    if ((image1.at<Vec3b>(r, c)[0] < 30) & (image1.at<Vec3b>(r, c)[1] < 30) & (image1.at<Vec3b>(r, c)[2] < 30))
+                    if (tom == 1)
                     {
-                        image1.at<Vec3b>(r, c)[0] = img2Transed.at<Vec3b>(r, c)[0];
-                        image1.at<Vec3b>(r, c)[1] = img2Transed.at<Vec3b>(r, c)[1];
-                        image1.at<Vec3b>(r, c)[2] = img2Transed.at<Vec3b>(r, c)[2];
-                    }
-                    else if ((img2Transed.at<Vec3b>(r, c)[0] == 0) & (img2Transed.at<Vec3b>(r, c)[1] == 0) & (img2Transed.at<Vec3b>(r, c)[2] == 0))
-                    {
-                        image1.at<Vec3b>(r, c)[0] = image1.at<Vec3b>(r, c)[0];
-                        image1.at<Vec3b>(r, c)[1] = image1.at<Vec3b>(r, c)[1];
-                        image1.at<Vec3b>(r, c)[2] = image1.at<Vec3b>(r, c)[2];
+                        if ((image1.at<Vec3b>(r, c)[0] < 30) & (image1.at<Vec3b>(r, c)[1] < 30) & (image1.at<Vec3b>(r, c)[2] < 30))
+                        {
+                            image1.at<Vec3b>(r, c)[0] = img2Transed.at<Vec3b>(r, c)[0];
+                            image1.at<Vec3b>(r, c)[1] = img2Transed.at<Vec3b>(r, c)[1];
+                            image1.at<Vec3b>(r, c)[2] = img2Transed.at<Vec3b>(r, c)[2];
+                        }
+                        else if ((img2Transed.at<Vec3b>(r, c)[0] == 0) & (img2Transed.at<Vec3b>(r, c)[1] == 0) & (img2Transed.at<Vec3b>(r, c)[2] == 0))
+                        {
+                            image1.at<Vec3b>(r, c)[0] = image1.at<Vec3b>(r, c)[0];
+                            image1.at<Vec3b>(r, c)[1] = image1.at<Vec3b>(r, c)[1];
+                            image1.at<Vec3b>(r, c)[2] = image1.at<Vec3b>(r, c)[2];
+                        }
+                        else
+                        {
+                            image1.at<Vec3b>(r, c)[0] = (image1.at<Vec3b>(r, c)[0] + img2Transed.at<Vec3b>(r, c)[0]) / 2;
+                            image1.at<Vec3b>(r, c)[1] = (image1.at<Vec3b>(r, c)[1] + img2Transed.at<Vec3b>(r, c)[1]) / 2;
+                            image1.at<Vec3b>(r, c)[2] = (image1.at<Vec3b>(r, c)[2] + img2Transed.at<Vec3b>(r, c)[2]) / 2;
+                        }
                     }
                     else
                     {
-                        image1.at<Vec3b>(r, c)[0] = (image1.at<Vec3b>(r, c)[0] + img2Transed.at<Vec3b>(r, c)[0]) / 2;
-                        image1.at<Vec3b>(r, c)[1] = (image1.at<Vec3b>(r, c)[1] + img2Transed.at<Vec3b>(r, c)[1]) / 2;
-                        image1.at<Vec3b>(r, c)[2] = (image1.at<Vec3b>(r, c)[2] + img2Transed.at<Vec3b>(r, c)[2]) / 2;
+                        if ((image1.at<Vec3b>(r, c)[0] == 0) & (image1.at<Vec3b>(r, c)[1] == 0) & (image1.at<Vec3b>(r, c)[2] == 0))
+                        {
+                            image1.at<Vec3b>(r, c)[0] = img2Transed.at<Vec3b>(r, c)[0];
+                            image1.at<Vec3b>(r, c)[1] = img2Transed.at<Vec3b>(r, c)[1];
+                            image1.at<Vec3b>(r, c)[2] = img2Transed.at<Vec3b>(r, c)[2];
+                        }
                     }
                 }
             }
             hisIdx[nowAdd] = 1;
-            history.at(nowAdd) = img2Transed;
+            history.at(nowAdd) = h;
             q++;
         }
         lastAdded = nowAdd;
         next_base = img2Transed.clone();
+        //next_base_h = h;
  
-        /*namedWindow("Stitching", WINDOW_KEEPRATIO);
+        namedWindow("Stitching", WINDOW_KEEPRATIO);
         imshow("Stitching", image1);
         cout << "Loaded new image" << endl;
-        waitKey();*/
+        waitKey();
     }
     /*Mat light;
     light = fixLightingFinal(image1);
