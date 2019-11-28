@@ -1,15 +1,15 @@
 /*
  Course: ELEC 474 - Machine Vision
  Term: Fall 2019
- Instructor: Prof. Michael Greenspan
+ Instructors: Prof. Michael Greenspan and others
  Title: Take Home Exam
- Date: November 2019
+ Date: November 28, 2019
  
- Copyright (c) 2019 by Tom (Ke Jun) Sung, 20001387.
+ Copyright (c) 2019 by Tom (Ke Jun) Sung (Student #: 20001387).
  I verify that the code developed below is original and developed by myself.
- Any code that is re-used below by others will be a breach in copyright and Academic Integrity.
+ Any code that is re-used below by others will be a breach in copyright and Academic Integrity under Queen's University Student Code of Conduct.
  
- ELEC 474 is offered by the Department of Electrical ad Computer Engineering at Queen's University.
+ ELEC 474 is offered by the Department of Electrical ad Computer Engineering at Queen's University in Kingston, ON, Canada.
  
  */
 
@@ -34,48 +34,49 @@ using namespace std;
 vector<String> getImages(String path);
 vector<Mat> loadImages(vector<String> list);
 vector<Mat> loadMat(String identify);
-void imgORBMatch(vector<Mat> & matSource);
+void imgMatchStitch(vector<Mat> & matSource);
 void padding(vector<Point> pt_transform, int &desiredWidth, int &desiredHeight);
 void stitching(vector<Mat> inputImg);
 
-
 // Global Variables
-//vector<string> listofImages; // Original plan to do all the file names... ignore forever.
-vector<string>listOfChurchImages = getImages("StJames/*.jpg");
+vector<string>listOfChurchImages = getImages("StJames/*.jpg"); // Import all images in the folder into the program.
 vector<string>listOfOfficeImages = getImages("office2/*.jpg");
-vector<string>listOfWLHImages = getImages("WLH/*.jpg"); // I may want to manually order the images...
-//vector<Mat> matChurch = loadImages(listOfChurchImages); // loading matrices.
-//vector<Mat> matOffice = loadImages(listOfOfficeImages); // loading matrices.
-//vector<Mat> matwlh = loadImages(listOfWLHImages); // loading matrices
+vector<string>listOfWLHImages = getImages("WLH/*.jpg");
 
 int main()
 {
     vector<Mat> matSource;
-    matSource = loadMat("office");
-    cout << "First time" << endl;
-    imgORBMatch(matSource);
-    // cout << "\n\n" << endl;
-    
-    // stitching(matOffice);
-    
-    // cout << "Second time" << endl;
-    // imgORBMatch(matSource);
-    
-    // Never runs to here because problems occur in void imgORBMatch(matSource).
-    for (int i = 0; i < matSource.size(); i++)
-    {
-        imshow("Panorama", matSource[i]);
-        waitKey();
-    }
-    
+    matSource = loadMat("office"); // Choices: church (StJames), office, and wlh.
+    imgMatchStitch(matSource);
     return 0;
 }
 
+// This function retrieves all images from a folder and returns them in a vector of strings of the file names.
+vector<String> getImages(String path)
+{
+    String filePath = path;
+    vector<String> listOfImages;
+    glob(filePath, listOfImages, false);
+    return listOfImages;
+}
+
+// Need new function to extract features and put them in variables
+vector<Mat> loadImages(vector<String> list)
+{
+    vector<Mat> matImg;
+    for (int i = 0; i < list.size(); i++)
+    {
+        Mat img = imread(list[i]);
+        matImg.push_back(img);
+    }
+    return matImg;
+}
+
+// Load the necessary matrices into the code
 vector<Mat> loadMat(String identify)
 {
     vector<Mat> matSource;
     
-    // Load the necessary matrices into the code
     if(identify == "church")
     {
         matSource = loadImages(listOfChurchImages);
@@ -95,7 +96,7 @@ vector<Mat> loadMat(String identify)
     return matSource;
 }
 
-void imgORBMatch(vector<Mat> & matSource)
+void imgMatchStitch(vector<Mat> & matSource)
 {
     // Variables for Feature Detector
     int nfeatures = 5000;
@@ -110,15 +111,16 @@ void imgORBMatch(vector<Mat> & matSource)
     Mat img1, img2, descriptors1, descriptors2, h, matchesMatrix, resultImg, pano;
     vector<KeyPoint> keypoints1, keypoints2;
     vector<Point2f> img1Points, img2Points;
-    vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
+    vector<DMatch> matches12, matches21, filteredMatches12;
+    vector<Mat> transformedImg, panoImg, hHistory;
+    vector<Point> pt_orig, pt_transform;
     Ptr<FeatureDetector> detector;
     Ptr<DescriptorMatcher> matcher;
     int first = 0;
-    int j = 1; // for loop counter
-    vector<Mat> transformedImg, panoImg, hHistory;
-    
-    //    cout << matSource.size() << endl;
-    //    transformedImg.push_back(matSource[0]); // Put one image in the vector<Mat>, acts as base image
+    int j = 1;
+    int img2_width = 0;
+    int img2_height = 0;
+    int cropwidth;
     
     cout << "Total images to match: " << matSource.size() << endl;
     
@@ -143,14 +145,12 @@ void imgORBMatch(vector<Mat> & matSource)
         detector->detectAndCompute(img2, Mat(), keypoints2, descriptors2);
         
         // Match features
-        //vector<DMatch> matches12, matches21, filteredMatches12, filteredMatches21;
         matcher = DescriptorMatcher::create("BruteForce-Hamming");
         matcher->match(descriptors1, descriptors2, matches12, Mat());
         matcher->match(descriptors2, descriptors1, matches21, Mat());
         
-        // Sort matches to get good matches
+        // Sort matches to get good matches (sort by distance)
         filteredMatches12 = matches12;
-        
         for (int i = 0; i < filteredMatches12.size(); i++)
         {
             for (int j = 0; j < filteredMatches12.size() - 1; j++)
@@ -164,7 +164,7 @@ void imgORBMatch(vector<Mat> & matSource)
             }
         }
         
-        // Filter Matches to take first 20. Return error if less 4 matches are found
+        // Filter to take first 20 matches. Return error if less 4 matches are found
         if (filteredMatches12.size() > 20)
         {
             filteredMatches12.resize(20);
@@ -172,6 +172,12 @@ void imgORBMatch(vector<Mat> & matSource)
         else if(filteredMatches12.size() < 4)
         {
             cout << "Not enough matches! Exit program." << endl;
+        }
+        
+        // Printing all the filtered matches
+        for (int i = 0; i < filteredMatches12.size(); i++)
+        {
+            cout << "Match #" << i+1 << " has distance: " << filteredMatches12[i].distance << endl;
         }
         
         
@@ -184,7 +190,7 @@ void imgORBMatch(vector<Mat> & matSource)
         // Find homography (source pts, dst pts, algorithm)
         h = findHomography(img2Points, img1Points, RANSAC); // Outputs 64F... double matrix type
         
-        vector<Point> pt_orig, pt_transform;
+        // Initializing vector of Point
         for (int i = 0; i < 4; i++)
         {
             Point temp;
@@ -194,6 +200,7 @@ void imgORBMatch(vector<Mat> & matSource)
             pt_transform.push_back(temp);
         }
         
+        // I am attempting to get the new coordinates of the homography-ed image 2.
         // Width is x, height is y
         pt_orig[0].x = 0; // This is upper left
         pt_orig[0].y = 0;
@@ -230,14 +237,10 @@ void imgORBMatch(vector<Mat> & matSource)
             cout << "Transformed point " << i+1 << ": " << pt_transform[i] << endl;
         }
         
-        // Padding: This is used for WLH and StJames
-        int img2_width = 0;
-        int img2_height = 0;
+        // Padding: This is meant to be used for WLH and StJames
         padding(pt_transform, img2_width, img2_height);
         
-        
-        int cropwidth;
-        // For the office, this is the cropping scheme
+        // Getting the width where the image should be cropped.
         if(pt_transform[1].x > pt_transform[2].x)
         {
             cropwidth = pt_transform[2].x;
@@ -247,13 +250,12 @@ void imgORBMatch(vector<Mat> & matSource)
         }
         
         // Trying to store history of homography and use it on the images after this one.
-        // Not developed: Homography history reading.
-        hHistory.push_back(h);
-        cout << "Homography stored." << endl;
+        // Homography history reading is not fully developed. This is left here to show what I have done.
+        hHistory.push_back(h); cout << "Homography stored." << endl;
         
         // Panorama length needed.
         int height_img1 = img1.rows;
-        int height_img2 = img2.rows;
+        int height_img2 = img2.rows; // Unused but would be used if a more efficient algorithm is developed.
         int width_img1 = img1.cols;
         int width_img2 = img2.cols;
         int height_panorama = height_img1;// + height_img2;
@@ -266,9 +268,11 @@ void imgORBMatch(vector<Mat> & matSource)
  
         // Warp image according to the homography
         warpPerspective(img2, resultImg, h, Size(width_panorama, height_panorama), 1);
-        
         imshow("Perspective change", resultImg);
         waitKey();
+        
+        // Origianlly, the transformed image was going to be used to stitch images future images together.
+        // This would work with inverse homography. However, not enough time is given to finish development.
         transformedImg.push_back(resultImg);
         cout << "Image transformed and placed in matrix for images " <<  j << " and " << j+1 << "."  << endl;
         
@@ -281,12 +285,11 @@ void imgORBMatch(vector<Mat> & matSource)
                 resultImg.at<Vec3b>(r,c)[2] = img1.at<Vec3b>(r,c)[2];
             }
         }
-        
         imshow("Result Image with Image 1", resultImg);
         waitKey();
         
+        // Matrix with the length of the cropped image.
         pano = Mat(height_panorama, cropwidth, CV_8UC3);
-        
         for (int r = 0; r < height_panorama; r++)
         {
             for (int c = 0; c < cropwidth; c++)
@@ -302,61 +305,28 @@ void imgORBMatch(vector<Mat> & matSource)
         panoImg.push_back(pano);
         
         // Clear all variables
-        keypoints1.clear();
-        keypoints2.clear();
-        img1Points.clear();
-        img2Points.clear();
-        descriptors1.release();
-        descriptors2.release();
+        matches12.clear(); matches21.clear();
+        keypoints1.clear(); keypoints2.clear();
+        img1Points.clear(); img2Points.clear();
+        filteredMatches12.clear();
+        descriptors1.release(); descriptors2.release();
         h.release();
         matchesMatrix.release();
         resultImg.release();
         pano.release();
-        matches12.clear();
-        matches21.clear();
-        filteredMatches12.clear();
-        filteredMatches21.clear();
         detector->clear();
         matcher->clear();
-        
         
     } // end for loop
     
     // Update matSource...
     matSource.clear();
-    for (int i = 0; i < panoImg.size(); i++)
-    {
-        matSource.push_back(panoImg[i]);
-    }
+    for (int i = 0; i < panoImg.size(); i++) matSource.push_back(panoImg[i]);
     cout << "matSource #: " <<  matSource.size() << endl;
     cout << "panoImg #: " << panoImg.size() << endl;
-    
 }
 
-
-vector<String> getImages(String path)
-{
-    // This function retrieves all images from a folder and returns them in a vector of strings of the file names.
-    
-    String filePath = path;
-    vector<String> listOfImages;
-    glob(filePath, listOfImages, false);
-    
-    return listOfImages;
-}
-
-// Need new function to extract features and put them in variables
-vector<Mat> loadImages(vector<String> list)
-{
-    vector<Mat> matImg;
-    for (int i = 0; i < list.size(); i++)
-    {
-        Mat img = imread(list[i]);
-        matImg.push_back(img);
-    }
-    return matImg;
-}
-
+// Black padding around images to give placeholders for panorama image.
 void padding(vector<Point> pt_transform, int &desiredWidth, int &desiredHeight)
 {
     // reminder: x is width, y is height
@@ -373,46 +343,17 @@ void padding(vector<Point> pt_transform, int &desiredWidth, int &desiredHeight)
     h3 = pt_transform[2].y;
     h4 = pt_transform[3].y;
     
-    width.push_back(abs(w1-w2));
-    width.push_back(abs(w1-w3));
-    width.push_back(abs(w1-w4));
-    width.push_back(abs(w2-w3));
-    width.push_back(abs(w2-w4));
-    width.push_back(abs(w3-w4));
+    width.push_back(abs(w1-w2)); width.push_back(abs(w1-w3));
+    width.push_back(abs(w1-w4)); width.push_back(abs(w2-w3));
+    width.push_back(abs(w2-w4)); width.push_back(abs(w3-w4));
     
-    height.push_back(abs(h1-h2));
-    height.push_back(abs(h1-h3));
-    height.push_back(abs(h1-h4));
-    height.push_back(abs(h2-h3));
-    height.push_back(abs(h2-h4));
-    height.push_back(abs(h3-h4));
+    height.push_back(abs(h1-h2)); height.push_back(abs(h1-h3));
+    height.push_back(abs(h1-h4)); height.push_back(abs(h2-h3));
+    height.push_back(abs(h2-h4)); height.push_back(abs(h3-h4));
 
     sort(width.begin(), width.end());
     sort(height.begin(), height.end());
     
     desiredWidth = width[5];
     desiredHeight = height[5];
-    
-}
-
-// This stitching function uses the high level Stitcher class
-void stitching(vector<Mat> inputImg)
-{
-    // Referenced from: https://docs.opencv.org/3.4/d8/d19/tutorial_stitcher.html
-    
-    vector<Mat> matSource = inputImg;
-    Mat panorama;
-    Stitcher::Mode mode = Stitcher::PANORAMA;
-    Ptr<Stitcher>stitcher = Stitcher::create(mode);
-    Stitcher::Status status = stitcher->stitch(matSource, panorama);
-    
-    if(status != Stitcher::OK)
-    {
-        cout << "Cannot stitch images" << endl;
-        return;
-    }
-    
-    imshow("Pano image",panorama);
-    waitKey();
-    
 }
