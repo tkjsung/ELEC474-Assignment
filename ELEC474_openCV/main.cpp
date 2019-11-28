@@ -9,7 +9,7 @@
  I verify that the code developed below is original and developed by myself.
  Any code that is re-used below by others will be a breach in copyright and Academic Integrity under Queen's University Student Code of Conduct.
  
- ELEC 474 is offered by the Department of Electrical ad Computer Engineering at Queen's University in Kingston, ON, Canada.
+ ELEC 474 is offered by the Department of Electrical and Computer Engineering at Queen's University in Kingston, ON, Canada.
  
  */
 
