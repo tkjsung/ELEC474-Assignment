@@ -6,8 +6,7 @@
  Date: November 28, 2019
  
  Copyright (c) 2019 by Tom (Ke Jun) Sung (Student #: 20001387).
- I verify that the code developed below is original and developed by myself.
- Any code that is re-used below by others will be a breach in copyright and Academic Integrity under Queen's University Student Code of Conduct.
+ I verify that the code developed below is original and developed by myself. Any code that is re-used below by others will be a breach in copyright and Academic Integrity under Queen's University Student Code of Conduct.
  
  ELEC 474 is offered by the Department of Electrical and Computer Engineering at Queen's University in Kingston, ON, Canada.
  
@@ -60,7 +59,6 @@ vector<String> getImages(String path)
     return listOfImages;
 }
 
-// Need new function to extract features and put them in variables
 vector<Mat> loadImages(vector<String> list)
 {
     vector<Mat> matImg;
@@ -96,6 +94,7 @@ vector<Mat> loadMat(String identify)
     return matSource;
 }
 
+// Image matching and stitching is done in this function
 void imgMatchStitch(vector<Mat> & matSource)
 {
     // Variables for Feature Detector
