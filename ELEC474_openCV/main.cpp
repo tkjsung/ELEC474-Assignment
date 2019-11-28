@@ -37,7 +37,7 @@ vector<Mat> loadMat(String identify);
 void imgORBMatch(vector<Mat> & matSource);
 void padding(vector<Point> pt_transform, int &desiredWidth, int &desiredHeight);
 void stitching(vector<Mat> inputImg);
-
+void stitchNames(String identify);
 
 // Global Variables
 //vector<string> listofImages; // Original plan to do all the file names... ignore forever.
@@ -51,12 +51,18 @@ vector<string>listOfWLHImages = getImages("WLH/*.jpg"); // I may want to manuall
 int main()
 {
     vector<Mat> matSource;
-    matSource = loadMat("office");
-    cout << "First time" << endl;
-    imgORBMatch(matSource);
+    matSource = loadMat("wlh");
+    
+//    matSource.push_back(imread("/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151857.jpg"));
+//    matSource.push_back(imread("/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151855.jpg"));
+//    matSource.push_back(imread("/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151853.jpg"));
+//    matSource.push_back(imread("/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151850.jpg"));
+//    matSource.push_back(imread("/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151846.jpg"));
+    
+//    imgORBMatch(matSource);
     // cout << "\n\n" << endl;
     
-    // stitching(matOffice);
+     stitching(matSource);
     
     // cout << "Second time" << endl;
     // imgORBMatch(matSource);
@@ -284,6 +290,7 @@ void imgORBMatch(vector<Mat> & matSource)
         
         imshow("Result Image with Image 1", resultImg);
         waitKey();
+//        imwrite("Office_2.jpg", resultImg);
         
         pano = Mat(height_panorama, cropwidth, CV_8UC3);
         
@@ -299,6 +306,7 @@ void imgORBMatch(vector<Mat> & matSource)
         
         imshow("Panorama", pano);
         waitKey();
+        imwrite("WLH_2.jpg",pano);
         panoImg.push_back(pano);
         
         // Clear all variables
@@ -414,5 +422,84 @@ void stitching(vector<Mat> inputImg)
     
     imshow("Pano image",panorama);
     waitKey();
+    imwrite("Stitcher_WLH2.jpg",panorama);
     
+}
+
+void stitchNames(String identify)
+{
+    string wlh1 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151846.jpg";
+    string wlh2 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151850.jpg";
+    string wlh3 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151853.jpg";
+    string wlh4 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151855.jpg";
+    string wlh5 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151857.jpg";
+    string wlh6 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151905.jpg";
+    string wlh7 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151907.jpg";
+    string wlh8 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151910.jpg";
+    string wlh9 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151912.jpg";
+    string wlh10 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151914.jpg";
+    string wlh11 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151915.jpg";
+    string wlh12 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151918.jpg";
+    string wlh13 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151920.jpg";
+    string wlh14 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151922.jpg";
+    string wlh15 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151923.jpg";
+    string wlh16 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151925.jpg";
+    string wlh17 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151927.jpg";
+    string wlh18 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151929.jpg";
+    string wlh19 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151930.jpg";
+    string wlh20 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151932.jpg";
+    string wlh21 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151933.jpg";
+    string wlh22 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151935.jpg";
+    string wlh23 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151936.jpg";
+    string wlh24 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151938.jpg";
+    string wlh25 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/WLH/20191119_151940.jpg";
+
+    string church1 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152004.jpg";
+    string church2 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152007.jpg";
+    string church3 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152009.jpg";
+    string church4 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152011.jpg";
+    string church5 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152013.jpg";
+    string church6 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152015.jpg";
+    string church7 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152017.jpg";
+    string church8 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152020.jpg";
+    string church9 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152022.jpg";
+    string church10 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152023.jpg";
+    string church11 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152026.jpg";
+    string church12 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152029.jpg";
+    string church13 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152031.jpg";
+    string church14 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152033.jpg";
+    string church15 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152036.jpg";
+    string church16 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/StJames/20191119_152040.jpg";
+
+    string office1 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170646.jpg";
+    string office2 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170650.jpg";
+    string office3 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170652.jpg";
+    string office4 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170653.jpg";
+    string office5 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170655.jpg";
+    string office6 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170657.jpg";
+    string office7 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170658.jpg";
+    string office8 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170700.jpg";
+    string office9 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170702.jpg";
+    string office10 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170704.jpg";
+    string office11 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170706.jpg";
+    string office12 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170707.jpg";
+    string office13 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170709.jpg";
+    string office14 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170711.jpg";
+    string office15 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170712.jpg";
+    string office16 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170714.jpg";
+    string office17 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170715.jpg";
+    string office18 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170717.jpg";
+    string office19 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170719.jpg";
+    string office20 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170721.jpg";
+    string office21 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170723.jpg";
+    string office22 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170725.jpg";
+    string office23 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170727.jpg";
+    string office24 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170729.jpg";
+    string office25 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170730.jpg";
+    string office26 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170732.jpg";
+    string office27 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170733.jpg";
+    string office28 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170735.jpg";
+    string office29 = "/Users/tomsung/Desktop/ELEC474_openCV/ELEC474_openCV/office2/20191119_170737.jpg";
+
+
 }
