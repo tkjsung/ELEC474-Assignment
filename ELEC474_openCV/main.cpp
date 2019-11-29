@@ -33,6 +33,7 @@ using namespace std;
 vector<String> getImages(String path);
 vector<Mat> loadImages(vector<String> list);
 vector<Mat> loadMat(String identify);
+void imgMatch(vector<Mat> matSource);
 void imgMatchStitch(vector<Mat> & matSource);
 void padding(vector<Point> pt_transform, int &desiredWidth, int &desiredHeight);
 void stitching(vector<Mat> inputImg);
@@ -41,12 +42,14 @@ void stitching(vector<Mat> inputImg);
 vector<string>listOfChurchImages = getImages("StJames/*.jpg"); // Import all images in the folder into the program.
 vector<string>listOfOfficeImages = getImages("office2/*.jpg");
 vector<string>listOfWLHImages = getImages("WLH/*.jpg");
+vector<int> goodMatch1, goodMatch2;
 
 int main()
 {
     vector<Mat> matSource;
     matSource = loadMat("office"); // Choices: church (StJames), office, and wlh.
-    imgMatchStitch(matSource);
+    imgMatch(matSource);
+//    imgMatchStitch(matSource);
     return 0;
 }
 
@@ -94,8 +97,112 @@ vector<Mat> loadMat(String identify)
     return matSource;
 }
 
+void imgMatch(vector<Mat> matSource)
+{
+    // All other variable declarations
+    Mat img1, img2, descriptors1, descriptors2, matchesMatrix;
+    vector<KeyPoint> keypoints1, keypoints2;
+    vector<Point2f> img1Points, img2Points;
+    vector<DMatch> matches, filteredMatches;
+    Ptr<FeatureDetector> detector;
+    Ptr<DescriptorMatcher> matcher;
+    int counter;
+    
+    // Variables for Feature Detector
+    int nfeatures = 5000;
+    float scaleFactor = 1.2f;
+    int nlevels = 8;
+    int edgeThreshold = 31;
+    int firstLevel = 0;
+    int WTA_K = 2;
+    int patchSize = 31;
+    
+    cout << "Total images to match: " << matSource.size() << endl;
+    
+    for (int i = 0; i< matSource.size()-1; i++)
+    {
+        for (int j = i+1; j < matSource.size(); j++)
+        {
+            counter = 0;
+            
+            // Import images to compare
+            img1 = matSource[i];
+            img2 = matSource[j];
+            
+            // Feature Detector
+            detector = ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, ORB::HARRIS_SCORE, patchSize);
+            detector->detectAndCompute(img1, Mat(), keypoints1, descriptors1);
+            detector->detectAndCompute(img2, Mat(), keypoints2, descriptors2);
+            
+            // Match features
+            matcher = DescriptorMatcher::create("BruteForce-Hamming");
+            matcher->match(descriptors1, descriptors2, matches, Mat());
+            
+            // Sort by distance
+            filteredMatches = matches;
+            for (int k = 0; k < filteredMatches.size(); k++)
+            {
+                for (int l = 0; l < filteredMatches.size() - 1; l++)
+                {
+                    if (filteredMatches[l].distance > filteredMatches[l + 1].distance)
+                    {
+                        auto temp = filteredMatches[l];
+                        filteredMatches[l] = filteredMatches[l + 1];
+                        filteredMatches[l + 1] = temp;
+                    }
+                }
+            }
+            
+            // Take the first 15% and count the number of good matches
+            const int numGoodMatches = filteredMatches.size() * 0.15f;
+            filteredMatches.erase(filteredMatches.begin() + numGoodMatches, filteredMatches.end());
+            
+            // Set distance to 20 for a good match to occur
+            for (int k = 0; k < filteredMatches.size(); k ++)
+            {
+                if(filteredMatches[k].distance < 21)
+                {
+                    counter++;
+                }
+            }
+//            cout << "\nImage " << i <<  " and Image " << j << endl;
+//            cout << "Good matches: " << counter << endl;
+            
+            if(counter > 150)
+            {
+                goodMatch1.push_back(i); // Recording good matches
+                goodMatch2.push_back(j); // Recording good matches
+                cout << "Image " << i << " and Image " << j << " : GOOD MATCH (" << counter << ")\n";
+            }
+            else{
+                cout << "Image " << i << " and Image " << j << " : BAD MATCH (" << counter << ")\n";
+            }
+            
+//            drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches, matchesMatrix);
+//            imshow("Matches", matchesMatrix);
+//            waitKey();
+            
+        }
+    }
+    
+    cout << "MATCHING: DONE" << endl;
+    
+}
+
+void imgTransform(vector<Mat> matSource)
+{
+    Mat img1, img2;
+    
+    for (int i = 0; i < goodMatch1.size(); i++)
+    {
+        
+    }
+    
+    
+}
+
 // Image matching and stitching is done in this function
-void imgMatchStitch(vector<Mat> & matSource)
+void imgMatchStitch(vector<Mat> matSource)
 {
     // Variables for Feature Detector
     int nfeatures = 5000;
