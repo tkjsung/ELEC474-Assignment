@@ -48,9 +48,14 @@ vector<int> goodMatch1, goodMatch2;
 int main()
 {
     vector<Mat> matSource;
+    
     matSource = loadMat("office"); // Choices: church (StJames), office, and wlh.
     imgMatch(matSource, 75);
-//    imgMatchStitch(matSource);
+    matSource = loadMat("church"); // Choices: church (StJames), office, and wlh.
+    imgMatch(matSource, 30);
+    matSource = loadMat("wlh"); // Choices: church (StJames), office, and wlh.
+    imgMatch(matSource, 25);
+    imgMatchStitch(matSource);
     return 0;
 }
 
@@ -100,7 +105,7 @@ vector<Mat> loadMat(String identify)
 
 void imgMatch(vector<Mat> matSource, int matchSensitivity)
 {
-    // All other variable declarations
+    // Variable declaration
     Mat img1, img2, descriptors1, descriptors2, matchesMatrix;
     vector<KeyPoint> keypoints1, keypoints2;
     vector<DMatch> matches, filteredMatches;
@@ -153,26 +158,19 @@ void imgMatch(vector<Mat> matSource, int matchSensitivity)
                 }
             }
             
-
             // Set distance to 20 for a good match to occur
             for (int k = 0; k < filteredMatches.size(); k ++)
             {
-                if(filteredMatches[k].distance < 21)
-                {
-                    counter++;
-                }
+                if(filteredMatches[k].distance < 21) counter++;
             }
             
             filteredMatches.erase(filteredMatches.begin() + counter, filteredMatches.end());
-            
-//            cout << "\nImage " << i <<  " and Image " << j << endl;
-//            cout << "Good matches: " << counter << endl;
             
             if(counter > matchSensitivity)
             {
                 goodMatch1.push_back(i); // Recording good matches
                 goodMatch2.push_back(j); // Recording good matches
-                cout << "Image " << i << " and Image " << j << " : GOOD MATCH (" << counter << ")\n";
+                cout << "Image " << i << " and Image " << j << " : GOOD MATCH (" << counter << " entries)\n";
                 
                 drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches, matchesMatrix);
                 imshow("Matches", matchesMatrix);
@@ -180,13 +178,13 @@ void imgMatch(vector<Mat> matSource, int matchSensitivity)
                 
                 // Call Transformation function so re-calculation of matches is not necessary.
                 imgTransform(img1, img2, filteredMatches, keypoints1, keypoints2);
-                
             }
-            else{
+            else
+            {
+                cout << "Image " << i << " and Image " << j << " : BAD MATCH (" << counter << " entries)\n";
                 drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches, matchesMatrix);
                 imshow("Matches", matchesMatrix);
                 waitKey();
-                cout << "Image " << i << " and Image " << j << " : BAD MATCH (" << counter << ")\n";
             }
         }
         cout << "Image " << i << " finished comparison." << endl;
