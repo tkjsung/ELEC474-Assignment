@@ -33,7 +33,8 @@ using namespace std;
 vector<String> getImages(String path);
 vector<Mat> loadImages(vector<String> list);
 vector<Mat> loadMat(String identify);
-void imgMatch(vector<Mat> matSource);
+void imgMatch(vector<Mat> matSource, int matchSensitivity);
+Mat imgTransform(Mat img1, Mat img2, vector<DMatch> matches, vector<KeyPoint> keypoints1, vector<KeyPoint> keypoints2);
 void imgMatchStitch(vector<Mat> & matSource);
 void padding(vector<Point> pt_transform, int &desiredWidth, int &desiredHeight);
 void stitching(vector<Mat> inputImg);
@@ -48,7 +49,7 @@ int main()
 {
     vector<Mat> matSource;
     matSource = loadMat("office"); // Choices: church (StJames), office, and wlh.
-    imgMatch(matSource);
+    imgMatch(matSource, 75);
 //    imgMatchStitch(matSource);
     return 0;
 }
@@ -97,19 +98,18 @@ vector<Mat> loadMat(String identify)
     return matSource;
 }
 
-void imgMatch(vector<Mat> matSource)
+void imgMatch(vector<Mat> matSource, int matchSensitivity)
 {
     // All other variable declarations
     Mat img1, img2, descriptors1, descriptors2, matchesMatrix;
     vector<KeyPoint> keypoints1, keypoints2;
-    vector<Point2f> img1Points, img2Points;
     vector<DMatch> matches, filteredMatches;
     Ptr<FeatureDetector> detector;
     Ptr<DescriptorMatcher> matcher;
     int counter;
     
     // Variables for Feature Detector
-    int nfeatures = 5000;
+    int nfeatures = 2000;
     float scaleFactor = 1.2f;
     int nlevels = 8;
     int edgeThreshold = 31;
@@ -153,10 +153,7 @@ void imgMatch(vector<Mat> matSource)
                 }
             }
             
-            // Take the first 15% and count the number of good matches
-            const int numGoodMatches = filteredMatches.size() * 0.15f;
-            filteredMatches.erase(filteredMatches.begin() + numGoodMatches, filteredMatches.end());
-            
+
             // Set distance to 20 for a good match to occur
             for (int k = 0; k < filteredMatches.size(); k ++)
             {
@@ -165,43 +162,66 @@ void imgMatch(vector<Mat> matSource)
                     counter++;
                 }
             }
+            
+            filteredMatches.erase(filteredMatches.begin() + counter, filteredMatches.end());
+            
 //            cout << "\nImage " << i <<  " and Image " << j << endl;
 //            cout << "Good matches: " << counter << endl;
             
-            if(counter > 150)
+            if(counter > matchSensitivity)
             {
                 goodMatch1.push_back(i); // Recording good matches
                 goodMatch2.push_back(j); // Recording good matches
                 cout << "Image " << i << " and Image " << j << " : GOOD MATCH (" << counter << ")\n";
+                
+                drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches, matchesMatrix);
+                imshow("Matches", matchesMatrix);
+                waitKey();
+                
+                // Call Transformation function so re-calculation of matches is not necessary.
+                imgTransform(img1, img2, filteredMatches, keypoints1, keypoints2);
+                
             }
             else{
+                drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches, matchesMatrix);
+                imshow("Matches", matchesMatrix);
+                waitKey();
                 cout << "Image " << i << " and Image " << j << " : BAD MATCH (" << counter << ")\n";
             }
-            
-//            drawMatches(img1, keypoints1, img2, keypoints2, filteredMatches, matchesMatrix);
-//            imshow("Matches", matchesMatrix);
-//            waitKey();
-            
         }
+        cout << "Image " << i << " finished comparison." << endl;
     }
-    
     cout << "MATCHING: DONE" << endl;
-    
 }
 
-void imgTransform(vector<Mat> matSource)
+Mat imgTransform(Mat img1, Mat img2, vector<DMatch> matches, vector<KeyPoint> keypoints1, vector<KeyPoint> keypoints2)
 {
-    Mat img1, img2;
+    Mat h, resultImg;
+    vector<Point2f> img1Points, img2Points;
     
-    for (int i = 0; i < goodMatch1.size(); i++)
+    for (size_t i = 0; i < matches.size(); i++)
     {
-        
+        img1Points.push_back(keypoints1[matches[i].queryIdx].pt);
+        img2Points.push_back(keypoints2[matches[i].trainIdx].pt);
     }
     
+    h = findHomography(img2Points, img1Points, RANSAC); // Outputs 64F... double matrix type
     
+    int height_img1 = img1.rows;
+    int height_img2 = img2.rows; // Unused but would be used if a more efficient algorithm is developed.
+    int width_img1 = img1.cols;
+    int width_img2 = img2.cols;
+    int height_panorama = height_img1;// + height_img2;
+    int width_panorama = width_img1 + width_img2;
+    
+    warpPerspective(img2, resultImg, h, Size(width_panorama, height_panorama), 1);
+    imshow("Perspective change", resultImg);
+    waitKey();
+    
+    return h;
 }
 
-// Image matching and stitching is done in this function
+// Image matching and stitching is done in this function (Step 3 only... see documentation)
 void imgMatchStitch(vector<Mat> matSource)
 {
     // Variables for Feature Detector
